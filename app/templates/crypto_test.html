@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto Pipeline Test – TeleMedSecure</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-950 text-gray-100 font-mono">
+
+  <!-- Nav -->
+  <nav class="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
+    <span class="text-blue-400 font-bold tracking-wide">TeleMedSecure · Crypto Pipeline Test</span>
+    <div class="flex gap-4 text-sm">
+      <a href="/dashboard" class="text-gray-400 hover:text-white transition">← Dashboard</a>
+      <a href="/logout" class="text-gray-400 hover:text-white transition">Logout</a>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-4 py-10">
+
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-white mb-1">Six-Step Pipeline Test</h1>
+      <p class="text-gray-400 text-sm">
+        Manually trigger <code class="text-blue-400">establish_session_key()</code> with any profile
+        and inspect the raw output before it is wired into real features.
+      </p>
+    </div>
+
+    <!-- Controls -->
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Operation Type</label>
+          <select id="opType"
+                  class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="chat">chat — Balanced (α=0.4, β=0.6)</option>
+            <option value="patient_record">patient_record — Security (α=0.2, β=0.8)</option>
+            <option value="video_call">video_call — Speed (α=0.7, β=0.3)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Context ID (PID)</label>
+          <input id="contextId" type="text" value="demo-patient"
+                 class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+      </div>
+
+      <button id="runBtn"
+              class="bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold px-6 py-2.5 rounded-lg transition text-sm">
+        ▶ Run Pipeline
+      </button>
+    </div>
+
+    <!-- Pipeline visualiser -->
+    <div id="visualiser" class="hidden mb-6">
+
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Pipeline Output</h2>
+        <span id="execBadge" class="bg-green-900/50 text-green-400 text-xs px-3 py-1 rounded-full border border-green-800"></span>
+      </div>
+
+      <!-- Steps -->
+      <div id="steps" class="space-y-3"></div>
+
+      <!-- Raw JSON -->
+      <details class="mt-6">
+        <summary class="cursor-pointer text-xs text-gray-500 hover:text-gray-300 transition select-none">
+          Show raw JSON response
+        </summary>
+        <pre id="rawJson"
+             class="mt-3 bg-gray-900 border border-gray-800 rounded-lg p-4 text-xs text-green-400 overflow-x-auto whitespace-pre-wrap"></pre>
+      </details>
+    </div>
+
+    <!-- Error box -->
+    <div id="errBox" class="hidden bg-red-900/40 border border-red-700 rounded-xl px-5 py-4 text-red-300 text-sm"></div>
+
+    <!-- Idle hint -->
+    <div id="hint" class="text-center text-gray-600 text-sm py-16">
+      Select a profile and click <strong class="text-gray-400">Run Pipeline</strong> to see the six steps execute live.
+    </div>
+
+  </main>
+
+  <script>
+    const runBtn    = document.getElementById('runBtn');
+    const vis       = document.getElementById('visualiser');
+    const stepsEl   = document.getElementById('steps');
+    const badge     = document.getElementById('execBadge');
+    const rawJson   = document.getElementById('rawJson');
+    const errBox    = document.getElementById('errBox');
+    const hint      = document.getElementById('hint');
+
+    // Step metadata for display order
+    const STEP_KEYS = ['step1','step2','step3','step4','step5','step6'];
+
+    function stepCard(key, data) {
+      const colours = {
+        step1: 'border-blue-700 bg-blue-950/30',
+        step2: 'border-purple-700 bg-purple-950/30',
+        step3: 'border-yellow-700 bg-yellow-950/20',
+        step4: 'border-orange-700 bg-orange-950/20',
+        step5: 'border-teal-700 bg-teal-950/20',
+        step6: 'border-green-700 bg-green-950/20',
+      };
+      const nums = {step1:'1',step2:'2',step3:'3',step4:'4',step5:'5',step6:'6'};
+
+      let details = '';
+      if (key === 'step3') {
+        details = `<div class="flex gap-6 mt-1 text-xs text-gray-400">
+          <span>K1′ = <span class="text-yellow-300">${data.k1_prime}</span></span>
+          <span>K2′ = <span class="text-yellow-300">${data.k2_prime}</span></span>
+        </div>`;
+      } else if (key === 'step4') {
+        details = `<div class="flex gap-6 mt-1 text-xs text-gray-400">
+          <span>Kf = <span class="text-orange-300">${data.preview}</span></span>
+          <span>${data.bytes_from_k1}B from K1′ + ${data.bytes_from_k2}B from K2′</span>
+        </div>`;
+      } else if (key === 'step5') {
+        details = `<div class="flex gap-6 mt-1 text-xs text-gray-400 flex-wrap">
+          <span>Kfinal = <span class="text-teal-300">${data.preview}</span></span>
+          <span class="truncate">SID = ${data.sid.slice(0,18)}…</span>
+        </div>`;
+      } else if (data.preview) {
+        details = `<div class="mt-1 text-xs text-gray-400">
+          → <span class="text-blue-300">${data.preview}</span>
+        </div>`;
+      }
+
+      return `
+        <div class="border rounded-lg px-4 py-3 ${colours[key]}">
+          <div class="flex items-start gap-3">
+            <span class="flex-shrink-0 w-6 h-6 rounded-full bg-gray-800 border border-gray-600
+                         flex items-center justify-center text-xs font-bold text-gray-300">${nums[key]}</span>
+            <div>
+              <div class="text-sm font-medium text-gray-200">${data.label}</div>
+              ${details}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    runBtn.addEventListener('click', async () => {
+      const op  = document.getElementById('opType').value;
+      const ctx = document.getElementById('contextId').value.trim() || 'demo-patient';
+
+      runBtn.disabled = true;
+      runBtn.textContent = '⏳ Running…';
+      vis.classList.add('hidden');
+      errBox.classList.add('hidden');
+      hint.classList.add('hidden');
+      stepsEl.innerHTML = '';
+
+      try {
+        const res = await fetch(`/crypto-test/run?operation_type=${encodeURIComponent(op)}&context_id=${encodeURIComponent(ctx)}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          errBox.textContent = data.error || 'An error occurred.';
+          errBox.classList.remove('hidden');
+          return;
+        }
+
+        // Render steps
+        for (const key of STEP_KEYS) {
+          if (data.step_details[key]) {
+            stepsEl.insertAdjacentHTML('beforeend', stepCard(key, data.step_details[key]));
+          }
+        }
+
+        badge.textContent = `✓ ${data.execution_time_ms} ms · α=${data.alpha} β=${data.beta} · ${data.profile_name}`;
+
+        // Sanitise kfinal before display (it's a full 32-byte key — show only preview)
+        const display = {...data};
+        display.kfinal = data.kfinal_preview + '… (full key not returned to client)';
+        rawJson.textContent = JSON.stringify(display, null, 2);
+
+        vis.classList.remove('hidden');
+
+      } catch (e) {
+        errBox.textContent = 'Network error: ' + e.message;
+        errBox.classList.remove('hidden');
+      } finally {
+        runBtn.disabled = false;
+        runBtn.textContent = '▶ Run Pipeline';
+      }
+    });
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,734 @@
+{% extends "base.html" %}
+{% block title %}Crypto Lab – TeleMedSecure{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* Dark-mode override scoped to the lab content area */
+  #lab { background: #0f1117; color: #e2e8f0; }
+  .lab-card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 0.75rem; }
+  .lab-label { color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; }
+  .mono { font-family: 'Courier New', Courier, monospace; }
+  .step-pill {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    background: #1e2535; border: 1px solid #2d3748;
+    border-radius: 0.5rem; padding: 0.75rem 1rem;
+  }
+  .step-num {
+    flex-shrink: 0; width: 1.5rem; height: 1.5rem; border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 700;
+  }
+  .profile-speed    { color: #38bdf8; }
+  .profile-balanced { color: #a78bfa; }
+  .profile-security { color: #34d399; }
+  .badge-speed    { background: #0c2a3a; color: #38bdf8; }
+  .badge-balanced { background: #1e1635; color: #a78bfa; }
+  .badge-security { background: #0c2a1f; color: #34d399; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="lab" class="-mx-4 sm:-mx-6 lg:-mx-8 -mt-8 px-4 sm:px-6 lg:px-8 pt-8 pb-12 min-h-screen overflow-hidden">
+
+  <!-- ── Header ──────────────────────────────────────────────────── -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-2xl font-bold text-white tracking-tight">Crypto Transparency Lab</h1>
+      <p class="text-slate-400 text-sm mt-1">
+        Live evidence of the hybrid ECC–Kyber key fusion pipeline running in context.
+        Every record, message, and call above generated a row in this log.
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="#evaluation"
+         class="flex-shrink-0 text-xs text-slate-400 hover:text-white border border-slate-700
+                hover:border-slate-500 px-3 py-2 rounded-md transition-colors">
+        ↓ Evaluation (Table I)
+      </a>
+      <button id="compareBtn" onclick="runComparison()"
+              class="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-indigo-600
+                     hover:bg-indigo-500 text-white text-sm font-semibold rounded-lg
+                     transition-colors shadow-md">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+        Run Live Comparison
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Comparison result banner (hidden until button clicked) ──── -->
+  <div id="compareBanner" class="hidden mb-6 lab-card p-5">
+    <p class="lab-label mb-3">Live Comparison Results — Three Profiles Back-to-Back</p>
+    <div id="compareResults" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div>
+  </div>
+
+  <!-- ── Stat cards ──────────────────────────────────────────────── -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+    <div class="lab-card px-5 py-4">
+      <p class="lab-label mb-1">Total Ops</p>
+      <p class="text-3xl font-bold text-white" id="statTotal">{{ total_ops }}</p>
+    </div>
+    <div class="lab-card px-5 py-4">
+      <p class="lab-label mb-1">Avg · Speed</p>
+      <p class="text-2xl font-bold profile-speed mono" id="statSpeed">
+        {{ avg_map.get('video_call', '—') }}{% if avg_map.get('video_call') %}ms{% endif %}
+      </p>
+      <p class="text-xs text-slate-500 mt-0.5">α=0.7 β=0.3</p>
+    </div>
+    <div class="lab-card px-5 py-4">
+      <p class="lab-label mb-1">Avg · Balanced</p>
+      <p class="text-2xl font-bold profile-balanced mono" id="statBalanced">
+        {{ avg_map.get('chat', '—') }}{% if avg_map.get('chat') %}ms{% endif %}
+      </p>
+      <p class="text-xs text-slate-500 mt-0.5">α=0.4 β=0.6</p>
+    </div>
+    <div class="lab-card px-5 py-4">
+      <p class="lab-label mb-1">Avg · Security</p>
+      <p class="text-2xl font-bold profile-security mono" id="statSecurity">
+        {{ avg_map.get('patient_record', '—') }}{% if avg_map.get('patient_record') %}ms{% endif %}
+      </p>
+      <p class="text-xs text-slate-500 mt-0.5">α=0.2 β=0.8</p>
+    </div>
+  </div>
+
+  <!-- ── Chart + Pipeline visualiser ────────────────────────────── -->
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+
+    <!-- Chart (3/5) -->
+    <div class="lg:col-span-3 lab-card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <p class="text-sm font-semibold text-white">Average Execution Time by Profile</p>
+          <p class="text-xs text-slate-500 mt-0.5">Live version of Table I — built from actual system usage</p>
+        </div>
+        <button onclick="refreshData()"
+                class="text-xs text-slate-400 hover:text-white border border-slate-700
+                       hover:border-slate-500 px-3 py-1.5 rounded-md transition-colors">
+          ↺ Refresh
+        </button>
+      </div>
+      <div class="relative" style="height: 220px;">
+        <canvas id="profileChart"></canvas>
+      </div>
+      <p class="text-xs text-slate-600 mt-3 text-center">
+        Higher α (ECC-dominant) = faster · Higher β (Kyber-dominant) = more quantum-resistant
+      </p>
+    </div>
+
+    <!-- Pipeline visualiser (2/5) -->
+    <div class="lg:col-span-2 lab-card p-5">
+      <p class="text-sm font-semibold text-white mb-1">Pipeline Step Visualiser</p>
+      <p class="text-xs text-slate-500 mb-4">Most recent operation</p>
+
+      <div id="pipelineSteps" class="space-y-2">
+        {% if logs %}
+        {% set log = logs[0] %}
+        <!-- Step 1 -->
+        <div class="step-pill">
+          <span class="step-num bg-blue-900 text-blue-300">1</span>
+          <div class="min-w-0">
+            <p class="text-xs font-medium text-slate-300">ECC X25519 → K1</p>
+            <p class="text-xs text-slate-500 mono truncate">ephemeral key exchange</p>
+          </div>
+        </div>
+        <!-- Step 2 -->
+        <div class="step-pill">
+          <span class="step-num bg-purple-900 text-purple-300">2</span>
+          <div class="min-w-0">
+            <p class="text-xs font-medium text-slate-300">MockKyber → K2</p>
+            <p class="text-xs text-slate-500 mono truncate">KEM encapsulation</p>
+          </div>
+        </div>
+        <!-- Step 3 -->
+        <div class="step-pill">
+          <span class="step-num bg-yellow-900 text-yellow-300">3</span>
+          <div class="min-w-0">
+            <p class="text-xs font-medium text-slate-300">SHA-256 Normalise → K1′, K2′</p>
+            <div class="flex gap-3 mt-0.5">
+              <p class="text-xs text-slate-500 mono">K1′ = <span class="text-yellow-400">{{ log.k1_prime_preview }}…</span></p>
+              <p class="text-xs text-slate-500 mono">K2′ = <span class="text-yellow-400">{{ log.k2_prime_preview }}…</span></p>
+            </div>
+          </div>
+        </div>
+        <!-- Step 4 -->
+        <div class="step-pill">
+          <span class="step-num bg-orange-900 text-orange-300">4</span>
+          <div class="min-w-0">
+            <p class="text-xs font-medium text-slate-300">Weighted Fusion → Kf</p>
+            <p class="text-xs text-slate-500 mono">
+              {{ log.bytes_from_k1 }}B⊕K1′ + {{ log.bytes_from_k2 }}B⊕K2′ =
+              <span class="text-orange-400">{{ log.kf_preview }}…</span>
+            </p>
+          </div>
+        </div>
+        <!-- Step 5 -->
+        <div class="step-pill">
+          <span class="step-num bg-teal-900 text-teal-300">5</span>
+          <div class="min-w-0">
+            <p class="text-xs font-medium text-slate-300">HKDF Derivation → Kfinal</p>
+            <p class="text-xs text-slate-500 mono truncate">SID = {{ log.sid[:16] }}…</p>
+          </div>
+        </div>
+        <!-- Step 6 -->
+        <div class="step-pill" style="border-color: #166534;">
+          <span class="step-num bg-green-900 text-green-300">6</span>
+          <div class="min-w-0">
+            <p class="text-xs font-medium text-green-400">AES-256-GCM ✓</p>
+            <p class="text-xs text-slate-500 mono">
+              {{ log.operation_type }} · {{ log.execution_time_ms }}ms
+            </p>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-slate-500 text-sm">
+          No operations yet. Use the app or click "Run Live Comparison".
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Formal Evaluation (Table I) ──────────────────────────────── -->
+  <div id="evaluation" class="lab-card mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-slate-700">
+      <div>
+        <p class="text-sm font-semibold text-white">Formal Evaluation</p>
+        <p class="text-xs text-slate-500 mt-0.5">
+          A controlled 20-iteration benchmark per profile, plus a naive baseline. This is the
+          evidence behind Table I and the <span class="mono text-indigo-400">Evaluate</span> objective.
+        </p>
+      </div>
+      <button id="benchmarkBtn" onclick="runBenchmark()"
+              class="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 bg-emerald-600
+                     hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg
+                     transition-colors shadow-md">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20V10M18 20V4M6 20v-4"/>
+        </svg>
+        Run Formal Benchmark (20 iterations)
+      </button>
+    </div>
+
+    <!-- Table I -->
+    <div class="overflow-x-auto -mx-px">
+      <table class="w-full text-xs min-w-[640px]">
+        <thead>
+          <tr class="border-b border-slate-800">
+            <th class="px-4 py-3 text-left lab-label">Configuration</th>
+            <th class="px-4 py-3 text-right lab-label">α</th>
+            <th class="px-4 py-3 text-right lab-label">β</th>
+            <th class="px-4 py-3 text-right lab-label">Mean (ms)</th>
+            <th class="px-4 py-3 text-right lab-label">Min</th>
+            <th class="px-4 py-3 text-right lab-label">Max</th>
+            <th class="px-4 py-3 text-right lab-label">Std Dev</th>
+            <th class="px-4 py-3 text-left lab-label w-40">Security Strength</th>
+          </tr>
+        </thead>
+        <tbody id="benchmarkBody" class="divide-y divide-slate-800">
+          <tr>
+            <td colspan="8" class="px-4 py-12 text-center text-slate-600">
+              No benchmark run yet. Click "Run Formal Benchmark" above to generate Table I
+              from a live 20-iteration run on this server.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mean ± std dev chart -->
+    <div class="px-5 pt-5 pb-2 border-t border-slate-700">
+      <p class="text-sm font-semibold text-white mb-1">Mean Execution Time ± Std Dev</p>
+      <p class="text-xs text-slate-500 mb-4">Three profiles vs the naive concat-only baseline, same 20 runs as Table I</p>
+      <div id="benchmarkChartWrap" class="relative hidden" style="height: 240px;">
+        <canvas id="benchmarkChart"></canvas>
+      </div>
+      <div id="benchmarkChartEmpty" class="text-center py-10 text-slate-600 text-sm">
+        Chart will appear here after the benchmark runs.
+      </div>
+    </div>
+
+    <!-- Interpretation -->
+    <div class="px-5 pb-5">
+      <p class="lab-label mb-2">Interpretation</p>
+      <p class="text-xs text-slate-400 leading-relaxed">
+        SPEED_PROFILE is expected to be the fastest of the three because its α=0.7 weighting
+        leans on ECC, the quicker of the two primitives. SECURITY_PROFILE is expected to be the
+        slowest because its β=0.8 weighting leans on Kyber instead. The weighted fusion approach
+        is designed to match or beat a single primitive used alone for its intended purpose: for
+        example, SPEED_PROFILE still keeps some Kyber contribution that a pure-ECC system would
+        not have, without giving up the speed that makes it suitable for a live video call. At
+        the scale these operations actually run at, all configurations land in the low single-digit
+        millisecond range, so individual runs can vary because of normal system scheduling noise
+        rather than a real difference between profiles. This is exactly why the benchmark above
+        runs 20 iterations and reports mean, min, max, and standard deviation instead of a single
+        timed run.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Live operation log ───────────────────────────────────────── -->
+  <div class="lab-card">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+      <div>
+        <p class="text-sm font-semibold text-white">Operation Log</p>
+        <p class="text-xs text-slate-500 mt-0.5">Every call to <span class="mono text-indigo-400">establish_session_key()</span> writes a row here</p>
+      </div>
+      <span id="logCount" class="text-xs text-slate-500 mono">{{ logs|length }} entries</span>
+    </div>
+
+    <div class="overflow-x-auto -mx-px">
+      <table class="w-full text-xs min-w-[520px]">
+        <thead>
+          <tr class="border-b border-slate-800">
+            <th class="px-4 py-3 text-left lab-label">Operation</th>
+            <th class="px-4 py-3 text-left lab-label">Profile</th>
+            <th class="px-4 py-3 text-left lab-label">α / β</th>
+            <th class="px-4 py-3 text-left lab-label hidden sm:table-cell">K1′</th>
+            <th class="px-4 py-3 text-left lab-label hidden sm:table-cell">K2′</th>
+            <th class="px-4 py-3 text-left lab-label hidden md:table-cell">Kf</th>
+            <th class="px-4 py-3 text-right lab-label">Time (ms)</th>
+            <th class="px-4 py-3 text-right lab-label hidden lg:table-cell">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="logBody" class="divide-y divide-slate-800">
+          {% for log in logs %}
+          <tr class="hover:bg-slate-800/40 transition-colors">
+            <td class="px-4 py-3">
+              <span class="inline-block px-2 py-0.5 rounded text-xs font-medium mono
+                {% if log.operation_type == 'video_call' %}badge-speed
+                {% elif log.operation_type == 'chat' %}badge-balanced
+                {% else %}badge-security{% endif %}">
+                {{ log.operation_type }}
+              </span>
+            </td>
+            <td class="px-4 py-3 mono
+              {% if log.operation_type == 'video_call' %}profile-speed
+              {% elif log.operation_type == 'chat' %}profile-balanced
+              {% else %}profile-security{% endif %}">
+              {% if log.operation_type == 'video_call' %}SPEED
+              {% elif log.operation_type == 'chat' %}BALANCED
+              {% else %}SECURITY{% endif %}
+            </td>
+            <td class="px-4 py-3 text-slate-300 mono">{{ log.alpha }} / {{ log.beta }}</td>
+            <td class="px-4 py-3 text-yellow-500 mono hidden sm:table-cell">{{ log.k1_prime_preview }}…</td>
+            <td class="px-4 py-3 text-yellow-500 mono hidden sm:table-cell">{{ log.k2_prime_preview }}…</td>
+            <td class="px-4 py-3 text-orange-400 mono hidden md:table-cell">{{ log.kf_preview }}…</td>
+            <td class="px-4 py-3 text-right font-semibold
+              {% if log.execution_time_ms < 5 %}text-green-400
+              {% elif log.execution_time_ms < 20 %}text-yellow-400
+              {% else %}text-red-400{% endif %} mono">
+              {{ log.execution_time_ms }}
+            </td>
+            <td class="px-4 py-3 text-right text-slate-500 mono hidden lg:table-cell">
+              {{ log.created_at.strftime('%H:%M:%S') if log.created_at else '—' }}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not logs %}
+          <tr>
+            <td colspan="8" class="px-4 py-12 text-center text-slate-600">
+              No operations logged yet. Use the app or click "Run Live Comparison" above.
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /#lab -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Chart setup ─────────────────────────────────────────────────────────────
+const PROFILE_LABELS = [
+  'SPEED_PROFILE\n(Video Call)',
+  'BALANCED_PROFILE\n(Chat)',
+  'SECURITY_PROFILE\n(Records)',
+];
+const COLORS = ['#38bdf8', '#a78bfa', '#34d399'];
+const BORDER = ['#0ea5e9', '#8b5cf6', '#10b981'];
+
+let chart;
+
+function initChart(data) {
+  const ctx = document.getElementById('profileChart').getContext('2d');
+  if (chart) chart.destroy();
+
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.chart_labels || PROFILE_LABELS,
+      datasets: [{
+        label: 'Avg execution time (ms)',
+        data: data.chart_data || [0, 0, 0],
+        backgroundColor: COLORS.map(c => c + '33'),
+        borderColor: BORDER,
+        borderWidth: 2,
+        borderRadius: 6,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            afterLabel: (ctx) => {
+              const counts = data.chart_counts || [0,0,0];
+              return `Based on ${counts[ctx.dataIndex]} operation(s)`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#94a3b8', font: { size: 10 } },
+          grid:  { color: '#1e2535' },
+        },
+        y: {
+          ticks: {
+            color: '#94a3b8', font: { size: 10 },
+            callback: v => v + ' ms',
+          },
+          grid: { color: '#1e2535' },
+          beginAtZero: true,
+        },
+      },
+    },
+  });
+}
+
+// ── Refresh dashboard data ───────────────────────────────────────────────────
+async function refreshData() {
+  const res  = await fetch('/crypto-lab/data');
+  const data = await res.json();
+
+  // Update stat cards
+  document.getElementById('statTotal').textContent    = data.total_ops;
+  const avgs = {};
+  data.chart_labels.forEach((_, i) => {
+    const op = ['video_call','chat','patient_record'][i];
+    avgs[op] = data.chart_data[i];
+  });
+  document.getElementById('statSpeed').textContent    = (avgs.video_call    || '—') + (avgs.video_call    ? 'ms' : '');
+  document.getElementById('statBalanced').textContent = (avgs.chat          || '—') + (avgs.chat          ? 'ms' : '');
+  document.getElementById('statSecurity').textContent = (avgs.patient_record|| '—') + (avgs.patient_record? 'ms' : '');
+
+  // Update chart
+  initChart(data);
+
+  // Update log table
+  updateLogTable(data.logs);
+  document.getElementById('logCount').textContent = data.logs.length + ' entries';
+
+  // Update pipeline visualiser with the most recent log entry
+  if (data.logs.length > 0) updateVisualiser(data.logs[0]);
+}
+
+function updateLogTable(logs) {
+  const tbody = document.getElementById('logBody');
+  if (!logs.length) return;
+
+  const profileClass = {
+    video_call:     'badge-speed',
+    chat:           'badge-balanced',
+    patient_record: 'badge-security',
+  };
+  const profileLabel = {
+    video_call: 'SPEED', chat: 'BALANCED', patient_record: 'SECURITY',
+  };
+  const profileColor = {
+    video_call: 'profile-speed', chat: 'profile-balanced', patient_record: 'profile-security',
+  };
+
+  tbody.innerHTML = logs.map(log => {
+    const timeColor = log.execution_time_ms < 5
+      ? 'text-green-400' : log.execution_time_ms < 20
+      ? 'text-yellow-400' : 'text-red-400';
+    const ts = log.created_at ? log.created_at.slice(11, 19) : '—';
+    return `
+      <tr class="hover:bg-slate-800/40 transition-colors border-b border-slate-800">
+        <td class="px-4 py-3">
+          <span class="inline-block px-2 py-0.5 rounded text-xs font-medium mono ${profileClass[log.operation_type] || ''}">
+            ${log.operation_type}
+          </span>
+        </td>
+        <td class="px-4 py-3 mono ${profileColor[log.operation_type] || 'text-slate-300'}">
+          ${profileLabel[log.operation_type] || '—'}
+        </td>
+        <td class="px-4 py-3 text-slate-300 mono">${log.alpha} / ${log.beta}</td>
+        <td class="px-4 py-3 text-yellow-500 mono hidden sm:table-cell">${log.k1_prime_preview}…</td>
+        <td class="px-4 py-3 text-yellow-500 mono hidden sm:table-cell">${log.k2_prime_preview}…</td>
+        <td class="px-4 py-3 text-orange-400 mono hidden md:table-cell">${log.kf_preview}…</td>
+        <td class="px-4 py-3 text-right font-semibold ${timeColor} mono">${log.execution_time_ms}</td>
+        <td class="px-4 py-3 text-right text-slate-500 mono hidden lg:table-cell">${ts}</td>
+      </tr>`;
+  }).join('');
+}
+
+function updateVisualiser(log) {
+  document.getElementById('pipelineSteps').innerHTML = `
+    <div class="step-pill">
+      <span class="step-num bg-blue-900 text-blue-300">1</span>
+      <div class="min-w-0">
+        <p class="text-xs font-medium text-slate-300">ECC X25519 → K1</p>
+        <p class="text-xs text-slate-500 mono">ephemeral key exchange</p>
+      </div>
+    </div>
+    <div class="step-pill">
+      <span class="step-num bg-purple-900 text-purple-300">2</span>
+      <div class="min-w-0">
+        <p class="text-xs font-medium text-slate-300">MockKyber → K2</p>
+        <p class="text-xs text-slate-500 mono">KEM encapsulation</p>
+      </div>
+    </div>
+    <div class="step-pill">
+      <span class="step-num bg-yellow-900 text-yellow-300">3</span>
+      <div class="min-w-0">
+        <p class="text-xs font-medium text-slate-300">SHA-256 Normalise → K1′, K2′</p>
+        <div class="flex gap-3 mt-0.5">
+          <p class="text-xs text-slate-500 mono">K1′ = <span class="text-yellow-400">${log.k1_prime_preview}…</span></p>
+          <p class="text-xs text-slate-500 mono">K2′ = <span class="text-yellow-400">${log.k2_prime_preview}…</span></p>
+        </div>
+      </div>
+    </div>
+    <div class="step-pill">
+      <span class="step-num bg-orange-900 text-orange-300">4</span>
+      <div class="min-w-0">
+        <p class="text-xs font-medium text-slate-300">Weighted Fusion → Kf</p>
+        <p class="text-xs text-slate-500 mono">
+          ${log.bytes_from_k1}B⊕K1′ + ${log.bytes_from_k2}B⊕K2′ =
+          <span class="text-orange-400">${log.kf_preview}…</span>
+        </p>
+      </div>
+    </div>
+    <div class="step-pill">
+      <span class="step-num bg-teal-900 text-teal-300">5</span>
+      <div class="min-w-0">
+        <p class="text-xs font-medium text-slate-300">HKDF Derivation → Kfinal</p>
+        <p class="text-xs text-slate-500 mono truncate">SID = ${log.sid.slice(0,16)}…</p>
+      </div>
+    </div>
+    <div class="step-pill" style="border-color:#166534;">
+      <span class="step-num bg-green-900 text-green-300">6</span>
+      <div class="min-w-0">
+        <p class="text-xs font-medium text-green-400">AES-256-GCM ✓</p>
+        <p class="text-xs text-slate-500 mono">${log.operation_type} · ${log.execution_time_ms}ms</p>
+      </div>
+    </div>`;
+}
+
+// ── "Run Live Comparison" ────────────────────────────────────────────────────
+async function runComparison() {
+  const btn = document.getElementById('compareBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Running…';
+
+  try {
+    const res  = await fetch('/crypto-lab/compare', { method: 'POST' });
+    const data = await res.json();
+
+    const colors  = { video_call: '#38bdf8', chat: '#a78bfa', patient_record: '#34d399' };
+    const names   = { video_call: 'SPEED_PROFILE', chat: 'BALANCED_PROFILE', patient_record: 'SECURITY_PROFILE' };
+    const weights = { video_call: 'α=0.7 β=0.3', chat: 'α=0.4 β=0.6', patient_record: 'α=0.2 β=0.8' };
+
+    document.getElementById('compareResults').innerHTML = data.results.map(r => `
+      <div style="border:1px solid ${colors[r.operation_type]}22; background:${colors[r.operation_type]}0d;"
+           class="rounded-lg px-4 py-4">
+        <p class="text-xs font-bold mono mb-2" style="color:${colors[r.operation_type]}">
+          ${names[r.operation_type]}
+        </p>
+        <p class="text-2xl font-bold text-white mono">${r.execution_time_ms}<span class="text-sm font-normal text-slate-400"> ms</span></p>
+        <p class="text-xs text-slate-500 mt-1">${weights[r.operation_type]}</p>
+        <div class="mt-2 space-y-0.5 text-xs mono text-slate-500">
+          <div>Kf = <span style="color:${colors[r.operation_type]}">${r.kf_preview}…</span></div>
+          <div>SID = ${r.sid.slice(0,14)}…</div>
+        </div>
+      </div>`).join('');
+
+    document.getElementById('compareBanner').classList.remove('hidden');
+
+    // Refresh the chart and log with the new data
+    await refreshData();
+
+  } catch (err) {
+    alert('Comparison failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run Live Comparison';
+  }
+}
+
+// ── "Run Formal Benchmark" (Table I + error-bar chart) ───────────────────────
+const BENCHMARK_LABELS  = { video_call: 'SPEED', chat: 'BALANCED', patient_record: 'SECURITY', baseline: 'BASELINE' };
+const BENCHMARK_NAMES   = { video_call: 'SPEED_PROFILE (Video Call)', chat: 'BALANCED_PROFILE (Chat)', patient_record: 'SECURITY_PROFILE (Records)' };
+const BENCHMARK_COLORS  = { video_call: '#38bdf8', chat: '#a78bfa', patient_record: '#34d399', baseline: '#94a3b8' };
+
+let benchmarkChart;
+let benchmarkErrorBars = [];
+
+async function runBenchmark() {
+  const btn = document.getElementById('benchmarkBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Running 20× per profile…';
+
+  try {
+    const res  = await fetch('/crypto-lab/benchmark', { method: 'POST' });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    const data = await res.json();
+
+    renderBenchmarkTable(data);
+    renderBenchmarkChart(data);
+
+  } catch (err) {
+    alert('Benchmark failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10M18 20V4M6 20v-4"/></svg> Run Formal Benchmark (20 iterations)';
+  }
+}
+
+function securityStrengthBar(bytesFromK2, bytesFromK1, color) {
+  const total = bytesFromK2 + bytesFromK1;
+  const pct = total > 0 ? Math.round((bytesFromK2 / total) * 100) : 0;
+  return `
+    <div class="flex items-center gap-2">
+      <div class="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden min-w-[60px]">
+        <div class="h-full" style="width:${pct}%; background:${color};"></div>
+      </div>
+      <span class="text-slate-400 mono flex-shrink-0">${pct}% Kyber</span>
+    </div>`;
+}
+
+function renderBenchmarkTable(data) {
+  const rows = [];
+  data.profile_order.forEach(op => {
+    const p = data.profiles[op];
+    rows.push({ key: op, label: BENCHMARK_NAMES[op], color: BENCHMARK_COLORS[op], ...p });
+  });
+  rows.push({
+    key: 'baseline', label: 'BASELINE (naive concat, no HKDF)', color: BENCHMARK_COLORS.baseline,
+    ...data.baseline,
+  });
+
+  document.getElementById('benchmarkBody').innerHTML = rows.map(r => `
+    <tr class="hover:bg-slate-800/40 transition-colors">
+      <td class="px-4 py-3 mono" style="color:${r.color}">${r.label}</td>
+      <td class="px-4 py-3 text-right text-slate-300 mono">${r.alpha ?? '-'}</td>
+      <td class="px-4 py-3 text-right text-slate-300 mono">${r.beta ?? '-'}</td>
+      <td class="px-4 py-3 text-right font-semibold text-white mono">${r.mean_ms}</td>
+      <td class="px-4 py-3 text-right text-slate-400 mono">${r.min_ms}</td>
+      <td class="px-4 py-3 text-right text-slate-400 mono">${r.max_ms}</td>
+      <td class="px-4 py-3 text-right text-slate-400 mono">${r.std_dev_ms}</td>
+      <td class="px-4 py-3">${securityStrengthBar(r.bytes_from_k2, r.bytes_from_k1, r.color)}</td>
+    </tr>`).join('');
+}
+
+// Custom Chart.js plugin: draws a +/- std-dev whisker on top of each bar.
+// Plain canvas drawing on the existing chart scales, no extra CDN needed.
+const errorBarPlugin = {
+  id: 'errorBarPlugin',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    const meta   = chart.getDatasetMeta(0);
+    const yScale = chart.scales.y;
+    const errors = benchmarkErrorBars || [];
+
+    meta.data.forEach((bar, i) => {
+      const err = errors[i] || 0;
+      if (!err) return;
+      const meanVal = chart.data.datasets[0].data[i];
+      const x        = bar.x;
+      const yTop     = yScale.getPixelForValue(meanVal + err);
+      const yBottom  = yScale.getPixelForValue(Math.max(meanVal - err, 0));
+
+      ctx.save();
+      ctx.strokeStyle = '#f87171';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x, yTop);    ctx.lineTo(x, yBottom);
+      ctx.moveTo(x - 6, yTop);    ctx.lineTo(x + 6, yTop);
+      ctx.moveTo(x - 6, yBottom); ctx.lineTo(x + 6, yBottom);
+      ctx.stroke();
+      ctx.restore();
+    });
+  },
+};
+
+function renderBenchmarkChart(data) {
+  document.getElementById('benchmarkChartEmpty').classList.add('hidden');
+  document.getElementById('benchmarkChartWrap').classList.remove('hidden');
+
+  const keys   = [...data.profile_order, 'baseline'];
+  const labels = keys.map(k => BENCHMARK_LABELS[k]);
+  const means  = keys.map(k => (k === 'baseline' ? data.baseline : data.profiles[k]).mean_ms);
+  const stds   = keys.map(k => (k === 'baseline' ? data.baseline : data.profiles[k]).std_dev_ms);
+  const colors = keys.map(k => BENCHMARK_COLORS[k]);
+
+  const ctx = document.getElementById('benchmarkChart').getContext('2d');
+  if (benchmarkChart) benchmarkChart.destroy();
+  benchmarkErrorBars = stds;
+
+  benchmarkChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Mean execution time (ms)',
+        data: means,
+        backgroundColor: colors.map(c => c + '33'),
+        borderColor: colors,
+        borderWidth: 2,
+        borderRadius: 6,
+      }],
+    },
+    plugins: [errorBarPlugin],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            afterLabel: (ctx) => `Std dev: ±${stds[ctx.dataIndex]} ms (n=20)`,
+          },
+        },
+      },
+      scales: {
+        x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#1e2535' } },
+        y: {
+          ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => v + ' ms' },
+          grid: { color: '#1e2535' },
+          beginAtZero: true,
+        },
+      },
+    },
+  });
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+initChart({
+  chart_labels: {{ (profile_labels.values() | list) | tojson }},
+  chart_data:   [
+    {{ avg_map.get('video_call', 0) }},
+    {{ avg_map.get('chat', 0) }},
+    {{ avg_map.get('patient_record', 0) }},
+  ],
+  chart_counts: [
+    {{ count_map.get('video_call', 0) }},
+    {{ count_map.get('chat', 0) }},
+    {{ count_map.get('patient_record', 0) }},
+  ],
+});
+
+// Auto-refresh log every 10 seconds
+setInterval(refreshData, 10000);
+</script>
+{% endblock %}

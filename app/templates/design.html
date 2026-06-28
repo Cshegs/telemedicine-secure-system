@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}System Design – TeleMedSecure{% endblock %}
+
+{% block head %}
+<style>
+  .step-card {
+    width: 100%;
+    flex-shrink: 0;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1rem 1.1rem;
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.03);
+  }
+  @media (min-width: 640px) { .step-card { width: 15.5rem; } }
+
+  .step-badge {
+    flex-shrink: 0;
+    width: 1.75rem; height: 1.75rem;
+    border-radius: 9999px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700;
+  }
+
+  .flow-arrow-right { display: none; }
+  .flow-arrow-down  { display: flex; }
+  @media (min-width: 640px) {
+    .flow-arrow-right { display: flex; }
+    .flow-arrow-down  { display: none; }
+  }
+
+  .layer-box {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 1px 2px 0 rgba(0,0,0,0.03);
+  }
+
+  .actor-pill {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.55rem;
+    border-radius: 9999px;
+    margin-bottom: 0.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+  <div class="flex items-center gap-2 mb-2">
+    <svg class="w-6 h-6 text-blue-700" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7" rx="1"/>
+      <rect x="14" y="3" width="7" height="7" rx="1"/>
+      <rect x="14" y="14" width="7" height="7" rx="1"/>
+      <rect x="3" y="14" width="7" height="7" rx="1"/>
+    </svg>
+    <h1 class="text-2xl font-bold text-gray-900">System Design</h1>
+  </div>
+  <p class="text-sm text-gray-500 max-w-3xl leading-relaxed">
+    This page exists to make the project's first objective, <strong>Design</strong>, visible in the
+    running system itself rather than only in the written chapters. It shows how the six-step
+    pipeline works, why each weighting profile is shaped the way it is, how the three layers fit
+    together, and how a single patient record actually moves from doctor to patient.
+  </p>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     A) Six-step pipeline flow diagram
+════════════════════════════════════════════════════════════ -->
+<section class="mb-12">
+  <h2 class="text-lg font-bold text-gray-900 mb-1">The Six-Step Pipeline</h2>
+  <p class="text-sm text-gray-500 mb-5">
+    Every operation in the app, a chat message, a call, or a record, runs this exact sequence
+    inside <code class="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">establish_session_key()</code>.
+  </p>
+
+  <div class="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-stretch justify-center gap-2">
+    {% for step in pipeline_steps %}
+    <div class="step-card border-t-4 border-{{ step.color }}-400">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="step-badge bg-{{ step.color }}-100 text-{{ step.color }}-700">{{ step.num }}</span>
+        <p class="text-sm font-semibold text-gray-900">{{ step.title }}</p>
+      </div>
+      <p class="text-xs font-mono text-gray-600 bg-gray-50 rounded px-2 py-1 mb-2 break-all">
+        {{ step.formula }}
+      </p>
+      <p class="text-xs text-gray-500 leading-relaxed">{{ step.detail }}</p>
+    </div>
+    {% if not loop.last %}
+    <div class="flow-arrow-right items-center text-gray-300 flex-shrink-0">
+      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </div>
+    <div class="flow-arrow-down items-center justify-center text-gray-300 flex-shrink-0 w-full">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><polyline points="5 12 12 19 19 12"/>
+      </svg>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     B) Profile design rationale cards
+════════════════════════════════════════════════════════════ -->
+<section class="mb-12">
+  <h2 class="text-lg font-bold text-gray-900 mb-1">Why Three Profiles, Not One</h2>
+  <p class="text-sm text-gray-500 mb-5">
+    A single fixed alpha/beta split cannot fit every use case, so the design defines three
+    profiles, each weighted toward what its use case actually needs.
+  </p>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+    {% for p in profiles %}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-bold font-mono text-{{ p.color }}-700">{{ p.name }}</span>
+        <span class="text-xs bg-{{ p.color }}-50 text-{{ p.color }}-700 px-2 py-0.5 rounded-full font-medium">
+          {{ p.use_case }}
+        </span>
+      </div>
+
+      <!-- alpha/beta proportion bar -->
+      <div class="mb-1 flex h-2.5 rounded-full overflow-hidden bg-gray-100">
+        <div class="bg-blue-400" style="width: {{ (p.alpha * 100) | round | int }}%"></div>
+        <div class="bg-{{ p.color }}-500" style="width: {{ (p.beta * 100) | round | int }}%"></div>
+      </div>
+      <div class="flex justify-between text-xs text-gray-400 font-mono mb-4">
+        <span>α = {{ p.alpha }} (ECC)</span>
+        <span>β = {{ p.beta }} (Kyber)</span>
+      </div>
+
+      <p class="text-xs font-semibold text-gray-700 mb-1.5">{{ p.heading }}</p>
+      <p class="text-xs text-gray-500 leading-relaxed">{{ p.why }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     C) System architecture overview
+════════════════════════════════════════════════════════════ -->
+<section class="mb-12">
+  <h2 class="text-lg font-bold text-gray-900 mb-1">System Architecture</h2>
+  <p class="text-sm text-gray-500 mb-5">
+    Three layers, each with one job. Cryptography only ever happens in the middle layer.
+  </p>
+
+  <div class="max-w-2xl mx-auto flex flex-col items-stretch">
+    {% for layer in architecture_layers %}
+    <div class="layer-box border-l-4 border-{{ layer.color }}-400">
+      <div class="flex items-baseline gap-2 mb-1">
+        <p class="text-sm font-bold text-gray-900">{{ layer.title }}</p>
+        <p class="text-xs font-mono text-{{ layer.color }}-700">{{ layer.subtitle }}</p>
+      </div>
+      <p class="text-xs text-gray-500 leading-relaxed">{{ layer.detail }}</p>
+    </div>
+    {% if not loop.last %}
+    <div class="flex justify-center my-1.5 text-gray-300">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><polyline points="5 12 12 19 19 12"/>
+      </svg>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════════
+     D) Data flow: how one patient record actually moves
+════════════════════════════════════════════════════════════ -->
+<section class="mb-4">
+  <h2 class="text-lg font-bold text-gray-900 mb-1">Data Flow: One Patient Record, Start to Finish</h2>
+  <p class="text-sm text-gray-500 mb-5">
+    The same doctor-and-patient story used throughout the project, traced through the real
+    code path in <code class="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">app/routers/records.py</code>.
+  </p>
+
+  <div class="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-stretch justify-center gap-2">
+    {% for step in data_flow_steps %}
+    <div class="step-card
+      {% if step.actor == 'doctor' %}border-t-4 border-blue-400
+      {% elif step.actor == 'patient' %}border-t-4 border-emerald-400
+      {% else %}border-t-4 border-slate-300{% endif %}">
+      <span class="actor-pill
+        {% if step.actor == 'doctor' %}bg-blue-50 text-blue-700
+        {% elif step.actor == 'patient' %}bg-emerald-50 text-emerald-700
+        {% else %}bg-slate-100 text-slate-600{% endif %}">
+        {{ step.actor }}
+      </span>
+      <p class="text-sm font-semibold text-gray-900 mb-1">{{ step.label }}</p>
+      <p class="text-xs text-gray-500 leading-relaxed">{{ step.detail }}</p>
+    </div>
+    {% if not loop.last %}
+    <div class="flow-arrow-right items-center text-gray-300 flex-shrink-0">
+      <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </div>
+    <div class="flow-arrow-down items-center justify-center text-gray-300 flex-shrink-0 w-full">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><polyline points="5 12 12 19 19 12"/>
+      </svg>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</section>
+
+{% endblock %}

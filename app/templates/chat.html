@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Secure Chat – TeleMedSecure{% endblock %}
+
+{% block content %}
+<div class="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-12rem)]">
+
+  <!-- ── Contact sidebar ────────────────────────────────────────── -->
+  <div class="lg:w-72 flex-shrink-0 lg:h-full">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm lg:h-full flex flex-col
+                max-h-52 lg:max-h-none overflow-y-auto lg:overflow-visible">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="text-sm font-semibold text-gray-700">Conversations</h2>
+      </div>
+      <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
+        {% for c in contacts %}
+        <a href="/chat?with={{ c.id }}"
+           class="flex items-center gap-3 px-5 py-3.5 hover:bg-blue-50 transition-colors
+                  {% if other and other.id == c.id %}bg-blue-50 border-l-2 border-blue-600{% endif %}">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0
+                      {% if c.role == 'doctor' %}bg-blue-100{% else %}bg-emerald-100{% endif %}">
+            <span class="font-bold text-sm
+                         {% if c.role == 'doctor' %}text-blue-700{% else %}text-emerald-700{% endif %}">
+              {{ c.full_name[0] }}
+            </span>
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-gray-900 truncate">{{ c.full_name }}</p>
+            <p class="text-xs text-gray-400 capitalize">{{ c.role }}</p>
+          </div>
+        </a>
+        {% else %}
+        <div class="px-5 py-10 text-center text-sm text-gray-400">No contacts yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Chat panel ─────────────────────────────────────────────── -->
+  <div class="flex-1 flex flex-col min-w-0 min-h-0">
+    {% if other %}
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col
+                h-[500px] lg:h-full">
+
+      <!-- Chat header -->
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center">
+            <span class="text-blue-700 font-bold text-sm">{{ other.full_name[0] }}</span>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-gray-900">{{ other.full_name }}</p>
+            <p class="text-xs text-gray-400 capitalize">{{ other.role }}</p>
+          </div>
+        </div>
+        <!-- Crypto badge -->
+        <div class="hidden sm:flex items-center gap-1.5 bg-indigo-50 border border-indigo-100
+                    rounded-full px-3 py-1">
+          <svg class="w-3 h-3 text-indigo-500" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span class="text-xs text-indigo-700 font-medium">α=0.4 β=0.6 · AES-256-GCM</span>
+        </div>
+      </div>
+
+      <!-- Message list -->
+      <div id="messages"
+           class="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-3 scroll-smooth">
+
+        {% if not history %}
+        <div class="flex items-center justify-center h-full">
+          <div class="text-center">
+            <svg class="w-10 h-10 text-gray-200 mx-auto mb-3" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <p class="text-sm text-gray-400">No messages yet. Say hello!</p>
+            <p class="text-xs text-indigo-400 mt-1">Every message is encrypted with the hybrid ECC–Kyber pipeline.</p>
+          </div>
+        </div>
+        {% else %}
+        {% for msg in history %}
+        <div class="flex {% if msg.sender_id == user.id %}justify-end{% else %}justify-start{% endif %}">
+          <div class="max-w-xs sm:max-w-sm lg:max-w-md">
+            {% if msg.sender_id != user.id %}
+            <p class="text-xs text-gray-400 mb-1 px-1">{{ msg.sender_name }}</p>
+            {% endif %}
+            <div class="rounded-2xl px-4 py-2.5
+                        {% if msg.sender_id == user.id %}
+                          bg-blue-700 text-white rounded-br-sm
+                        {% else %}
+                          bg-gray-100 text-gray-900 rounded-bl-sm
+                        {% endif %}">
+              <p class="text-sm leading-relaxed">{{ msg.text }}</p>
+            </div>
+            <div class="flex items-center gap-2 mt-1 px-1
+                        {% if msg.sender_id == user.id %}justify-end{% endif %}">
+              <span class="text-xs text-gray-400">{{ msg.timestamp }}</span>
+              {% if msg.exec_ms %}
+              <span class="text-xs text-gray-300 font-mono">· {{ msg.exec_ms }}ms</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+
+      <!-- Crypto info bar (live, updated per message) -->
+      <div id="cryptoBar"
+           class="px-5 py-2 bg-gray-50 border-t border-gray-100 text-xs text-gray-400 font-mono
+                  hidden flex-shrink-0 truncate">
+      </div>
+
+      <!-- Input bar -->
+      <div class="px-4 py-3 border-t border-gray-100 flex-shrink-0">
+        <div id="wsStatus" class="text-xs text-amber-500 mb-1.5 hidden">Connecting…</div>
+        <form id="chatForm" class="flex gap-2" autocomplete="off">
+          <input id="msgInput" type="text" placeholder="Type a message…"
+                 class="flex-1 border border-gray-300 rounded-xl px-4 py-2.5 text-sm
+                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          <button type="submit"
+                  class="bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl
+                         text-sm font-semibold transition-colors flex-shrink-0">
+            Send
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {% else %}
+    <!-- No conversation selected -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex items-center
+                justify-center h-full">
+      <div class="text-center px-6 py-16">
+        <svg class="w-12 h-12 text-gray-200 mx-auto mb-4" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <p class="text-sm text-gray-500 font-medium">Select a conversation from the left.</p>
+        <p class="text-xs text-gray-400 mt-1">Messages are encrypted end-to-end with AES-256-GCM.</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if other %}
+<script>
+  const CURRENT_USER_ID = {{ user.id }};
+  const OTHER_USER_ID   = {{ other.id }};
+  const OTHER_NAME      = {{ other.full_name | tojson }};
+</script>
+<script src="/static/js/chat.js"></script>
+{% endif %}
+{% endblock %}
