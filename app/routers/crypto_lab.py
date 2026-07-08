@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from app.database import get_db
 from app.auth import get_session_user
 from app.models import CryptoOperationLog
-from app.crypto.hybrid_fusion import establish_session_key, MockKyber
+from app.crypto.hybrid_fusion import aes_encrypt, establish_session_key, MockKyber
 from app.crypto.profiles import OPERATION_TYPE_TO_PROFILE
 
 router = APIRouter()
@@ -236,6 +236,28 @@ async def crypto_lab_benchmark(request: Request, db: Session = Depends(get_db)):
         "profile_order": PROFILE_ORDER,
         "profiles": profiles_out,
         "baseline": baseline_stats,
+    })
+
+
+@router.post("/crypto-lab/indistinguishability-test")
+async def crypto_lab_indistinguishability_test(request: Request, db: Session = Depends(get_db)):
+    user = get_session_user(request, db)
+    if not user:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    plaintext = "Patient blood pressure: 145/90 mmHg"
+
+    result_1 = establish_session_key("chat", "PAT-NG-DEMO", db=db)
+    ciphertext_1, _nonce_1 = aes_encrypt(result_1["kfinal"], plaintext)
+
+    result_2 = establish_session_key("chat", "PAT-NG-DEMO", db=db)
+    ciphertext_2, _nonce_2 = aes_encrypt(result_2["kfinal"], plaintext)
+
+    return JSONResponse({
+        "ciphertext_1": ciphertext_1,
+        "kfinal_1": result_1["kfinal"].hex(),
+        "ciphertext_2": ciphertext_2,
+        "kfinal_2": result_2["kfinal"].hex(),
     })
 
 

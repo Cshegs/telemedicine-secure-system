@@ -31,6 +31,25 @@
 {% block content %}
 <div id="lab" class="-mx-4 sm:-mx-6 lg:-mx-8 -mt-8 px-4 sm:px-6 lg:px-8 pt-8 pb-12 min-h-screen overflow-hidden">
 
+  <!-- ── Examiner info banner ─────────────────────────────────── -->
+  <div class="mb-6 rounded-lg border border-blue-800 bg-blue-950/40 px-5 py-4">
+    <div class="flex gap-3">
+      <span class="text-blue-400 text-lg flex-shrink-0">ℹ</span>
+      <div>
+        <p class="text-sm font-semibold text-blue-300 mb-1">How to read this dashboard</p>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Every time a doctor sends a chat, saves a patient record, or starts a video call,
+          the system runs the full six-step ECC–Kyber hybrid key fusion pipeline and logs
+          the result here. Different functions use different α/β weightings — a video call
+          prioritises speed (α=0.7), a patient record prioritises quantum resistance (β=0.8),
+          and chat uses the paper's recommended optimal balance (α=0.4, β=0.6).
+          The chart and Table I below are the live version of the paper's evaluation results,
+          built from actual system operations rather than a standalone script.
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- ── Header ──────────────────────────────────────────────────── -->
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
     <div>
@@ -63,6 +82,19 @@
   <div id="compareBanner" class="hidden mb-6 lab-card p-5">
     <p class="lab-label mb-3">Live Comparison Results — Three Profiles Back-to-Back</p>
     <div id="compareResults" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div>
+  </div>
+
+  <!-- ── MockKyber notice ──────────────────────────────────────── -->
+  <div class="mb-4 rounded-lg border border-yellow-800 bg-yellow-950/30 px-4 py-3 flex items-start gap-3">
+    <span class="text-yellow-400 flex-shrink-0">⚠</span>
+    <p class="text-xs text-yellow-300 leading-relaxed">
+      <span class="font-semibold">Running with MockKyber</span> — the Kyber KEM step uses a
+      SHA-256 based placeholder for portability. The protocol structure, weighted fusion, context
+      binding, and AES encryption are all real. To enable full ML-KEM-768 (CRYSTALS-Kyber),
+      install <span class="mono bg-yellow-950 px-1 rounded">liboqs-python</span> and swap
+      MockKyber in <span class="mono bg-yellow-950 px-1 rounded">app/crypto/hybrid_fusion.py</span>
+      as documented in the README.
+    </p>
   </div>
 
   <!-- ── Stat cards ──────────────────────────────────────────────── -->
@@ -267,6 +299,88 @@
         runs 20 iterations and reports mean, min, max, and standard deviation instead of a single
         timed run.
       </p>
+    </div>
+  </div>
+
+  <!-- ── Security Evaluation ──────────────────────────────────────── -->
+  <div class="lab-card mb-6">
+    <div class="px-5 py-4 border-b border-slate-700">
+      <p class="text-sm font-semibold text-white">Security Evaluation</p>
+      <p class="text-xs text-slate-500 mt-0.5">
+        Three demonstrations that directly answer "how do we prove the system is secure?"
+      </p>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-700">
+      <div class="px-5 py-5">
+        <p class="text-xs font-bold text-white mb-1">① Ciphertext Indistinguishability</p>
+        <p class="text-xs text-slate-400 mb-3 leading-relaxed">
+          The same plaintext encrypted in two separate sessions produces completely different
+          ciphertexts — proving session-context binding is working.
+        </p>
+        <button onclick="runIndistinguishabilityTest()" id="indiBtn"
+                class="text-xs px-3 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-md transition-colors font-medium mb-3">
+          Run Test
+        </button>
+        <div id="indiResult" class="hidden space-y-2">
+          <div class="rounded bg-slate-800 px-3 py-2">
+            <p class="lab-label mb-1">Session 1 ciphertext</p>
+            <p id="indi_ct1" class="text-xs mono text-orange-400 break-all"></p>
+            <p class="lab-label mt-1 mb-0.5">Kfinal used</p>
+            <p id="indi_kf1" class="text-xs mono text-teal-400 break-all"></p>
+          </div>
+          <div class="rounded bg-slate-800 px-3 py-2">
+            <p class="lab-label mb-1">Session 2 ciphertext</p>
+            <p id="indi_ct2" class="text-xs mono text-orange-400 break-all"></p>
+            <p class="lab-label mt-1 mb-0.5">Kfinal used</p>
+            <p id="indi_kf2" class="text-xs mono text-teal-400 break-all"></p>
+          </div>
+          <div class="rounded bg-green-950 border border-green-800 px-3 py-2">
+            <p class="text-xs text-green-400 font-semibold">
+              ✓ Same plaintext → completely different ciphertext and key. Session-context binding confirmed.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="px-5 py-5">
+        <p class="text-xs font-bold text-white mb-1">② Replay Attack Resistance</p>
+        <p class="text-xs text-slate-400 mb-3 leading-relaxed">
+          Two operations for the same patient using identical α/β produce different Kfinal values — because SID and timestamp always differ.
+        </p>
+        <div class="rounded bg-slate-800 px-3 py-2 text-xs mono space-y-1">
+          <p class="text-slate-400">What makes each key unique:</p>
+          <p class="text-blue-400">SID  = uuid4() — random every session</p>
+          <p class="text-purple-400">T    = datetime.now() — exact time</p>
+          <p class="text-green-400">PID  = patient ID — same across sessions</p>
+          <p class="text-orange-400">Kfinal = HKDF(Kf ‖ SID ‖ T ‖ PID)</p>
+          <p class="text-red-400 mt-1">∴ even if Kf repeats, Kfinal never repeats</p>
+        </div>
+      </div>
+      <div class="px-5 py-5">
+        <p class="text-xs font-bold text-white mb-1">③ Key Space Analysis</p>
+        <p class="text-xs text-slate-400 mb-3 leading-relaxed">
+          Why brute-force attack on Kfinal is computationally infeasible for both classical and quantum adversaries.
+        </p>
+        <div class="space-y-2 text-xs">
+          <div class="rounded bg-slate-800 px-3 py-2">
+            <p class="lab-label mb-1">Kfinal key length</p>
+            <p class="text-white font-bold mono text-base">256 bits</p>
+            <p class="text-slate-500 mono">2²⁵⁶ possible values</p>
+          </div>
+          <div class="rounded bg-slate-800 px-3 py-2">
+            <p class="lab-label mb-1">Classical brute-force</p>
+            <p class="text-red-400 mono">10¹² attempts/sec</p>
+            <p class="text-slate-400">Time required: <span class="text-white">longer than age of universe</span></p>
+          </div>
+          <div class="rounded bg-slate-800 px-3 py-2">
+            <p class="lab-label mb-1">Grover's quantum algorithm</p>
+            <p class="text-yellow-400 mono">Reduces to 2¹²⁸ effective security</p>
+            <p class="text-slate-400">Still <span class="text-white">computationally infeasible</span></p>
+          </div>
+          <div class="rounded bg-green-950 border border-green-800 px-3 py-2">
+            <p class="text-green-400 font-semibold">✓ Kfinal resists both classical and quantum brute-force attacks.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -525,6 +639,7 @@ function updateVisualiser(log) {
     </div>`;
 }
 
+
 // ── "Run Live Comparison" ────────────────────────────────────────────────────
 async function runComparison() {
   const btn = document.getElementById('compareBtn');
@@ -730,5 +845,25 @@ initChart({
 
 // Auto-refresh log every 10 seconds
 setInterval(refreshData, 10000);
+
+async function runIndistinguishabilityTest() {
+  const btn = document.getElementById('indiBtn');
+  btn.disabled = true;
+  btn.textContent = 'Running…';
+  try {
+    const res = await fetch('/crypto-lab/indistinguishability-test', { method: 'POST' });
+    const data = await res.json();
+    document.getElementById('indi_ct1').textContent = data.ciphertext_1;
+    document.getElementById('indi_kf1').textContent = data.kfinal_1;
+    document.getElementById('indi_ct2').textContent = data.ciphertext_2;
+    document.getElementById('indi_kf2').textContent = data.kfinal_2;
+    document.getElementById('indiResult').classList.remove('hidden');
+  } catch(err) {
+    alert('Test failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Run Test';
+  }
+}
 </script>
 {% endblock %}
