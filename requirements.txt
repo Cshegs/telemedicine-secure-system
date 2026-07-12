@@ -7,3 +7,4 @@ itsdangerous>=2.2.0
 cryptography>=42.0.7
 aiofiles>=23.2.1
 psycopg2-binary>=2.9.0
+supabase==2.3.4

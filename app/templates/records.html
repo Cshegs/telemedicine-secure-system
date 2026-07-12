@@ -116,6 +116,68 @@
       </form>
     </div>
 
+    <!-- Medical Files upload section -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+        <svg class="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <h2 class="text-sm font-semibold text-gray-900">Medical Files</h2>
+      </div>
+      <div class="px-6 py-5 space-y-4">
+        <form id="fileUploadForm" class="space-y-4">
+          <input type="hidden" name="patient_id" value="{{ selected_patient.id }}" />
+          
+          <div class="border-2 border-dashed border-gray-300 rounded-lg px-6 py-8 text-center hover:border-blue-500 transition-colors cursor-pointer"
+               onclick="document.getElementById('fileInput').click()">
+            <svg class="w-8 h-8 text-gray-400 mx-auto mb-2" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p class="text-sm text-gray-600 font-medium">Drop file here or click to browse</p>
+            <p class="text-xs text-gray-400 mt-1">Any file type supported</p>
+            <input type="file" id="fileInput" name="file" accept="*/*" class="hidden"
+                   onchange="updateFileName(this);" />
+          </div>
+          
+          <div id="fileNameDisplay" class="text-sm text-gray-600"></div>
+          
+          <!-- Crypto info strip -->
+          <div class="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-lg px-4 py-2.5">
+            <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <p class="text-xs text-indigo-700">
+              File will be encrypted with AES-256-GCM using the hybrid key-fusion key.
+            </p>
+          </div>
+          
+          <div class="flex justify-end">
+            <button type="button" onclick="uploadFile()"
+                    class="px-5 py-2.5 bg-blue-700 hover:bg-blue-800 text-white text-sm font-semibold
+                           rounded-lg transition-colors shadow-sm">
+              Upload & Encrypt File
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Patient files list -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-900">Patient Files</h2>
+        <span id="fileCount" class="text-xs bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full">0 files</span>
+      </div>
+      <div id="filesList" class="divide-y divide-gray-100"></div>
+    </div>
+
     <!-- Record list -->
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
       <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -192,7 +254,7 @@
      PATIENT VIEW (read-only)
 ══════════════════════════════════════════════════════════ -->
 
-<div class="mb-6">
+<div class="mb-6" data-user-id="{{ user.id }}">
   <h1 class="text-2xl font-bold text-gray-900">My Medical Records</h1>
   <p class="text-sm text-gray-500 mt-1">
     All records are decrypted in real time using your session's hybrid ECC–Kyber key.
@@ -262,6 +324,183 @@
   <p class="text-xs text-gray-400 mt-1">Your doctor will add records after your consultation.</p>
 </div>
 {% endif %}
+
+<!-- Patient files section -->
+<div class="mt-8 space-y-5">
+  <h2 class="text-lg font-bold text-gray-900">My Medical Files</h2>
+  
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
+    <div id="patientFilesList" class="divide-y divide-gray-100"></div>
+  </div>
+</div>
+
+{% endif %}
+
+<script>
+// ===== FILE UPLOAD AND LISTING =====
+
+function updateFileName(input) {
+  const display = document.getElementById('fileNameDisplay');
+  if (input.files && input.files[0]) {
+    display.textContent = '📄 ' + input.files[0].name;
+  } else {
+    display.textContent = '';
+  }
+}
+
+async function uploadFile() {
+  const fileInput = document.getElementById('fileInput');
+  const patientIdInput = document.querySelector('input[name="patient_id"]');
+  
+  if (!fileInput.files || !fileInput.files[0]) {
+    alert('Please select a file');
+    return;
+  }
+  
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('patient_id', patientIdInput.value);
+  
+  try {
+    const response = await fetch('/files/upload', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error('Upload failed: ' + response.status);
+    }
+    
+    alert('File uploaded and encrypted successfully!');
+    fileInput.value = '';
+    document.getElementById('fileNameDisplay').textContent = '';
+    loadFiles();
+  } catch (error) {
+    alert('Error uploading file: ' + error.message);
+  }
+}
+
+async function loadFiles() {
+  const patientIdInput = document.querySelector('input[name="patient_id"]');
+  if (!patientIdInput) return;
+  
+  const patientId = patientIdInput.value;
+  
+  try {
+    const response = await fetch(`/files/patient/${patientId}`);
+    if (!response.ok) throw new Error('Failed to load files');
+    
+    const files = await response.json();
+    const filesList = document.getElementById('filesList');
+    const fileCount = document.getElementById('fileCount');
+    
+    if (!filesList) return;
+    
+    fileCount.textContent = files.length + (files.length === 1 ? ' file' : ' files');
+    
+    if (files.length === 0) {
+      filesList.innerHTML = '<div class="px-6 py-8 text-center"><p class="text-sm text-gray-500">No files yet</p></div>';
+      return;
+    }
+    
+    filesList.innerHTML = files.map(file => `
+      <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-2">
+            <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+              <polyline points="13 2 13 9 20 9"/>
+            </svg>
+            <a href="/files/download/${file.id}" class="text-sm font-medium text-blue-600 hover:underline">
+              ${file.original_filename}
+            </a>
+          </div>
+          <div class="flex flex-wrap gap-3 text-xs text-gray-400">
+            <span>${(file.file_size_bytes / 1024).toFixed(1)} KB</span>
+            <span>${new Date(file.created_at).toLocaleDateString()}</span>
+          </div>
+        </div>
+        <button type="button" onclick="deleteFile(${file.id})"
+                class="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+          Delete
+        </button>
+      </div>
+    `).join('');
+  } catch (error) {
+    console.error('Error loading files:', error);
+  }
+}
+
+async function deleteFile(fileId) {
+  if (!confirm('Are you sure you want to delete this file?')) return;
+  
+  try {
+    const response = await fetch(`/files/${fileId}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error('Delete failed');
+    
+    alert('File deleted');
+    loadFiles();
+  } catch (error) {
+    alert('Error deleting file: ' + error.message);
+  }
+}
+
+// Load files when page loads (for doctor and patient views)
+document.addEventListener('DOMContentLoaded', function() {
+  const patientIdInput = document.querySelector('input[name="patient_id"]');
+  if (patientIdInput) {
+    loadFiles();
+  }
+  
+  // Also load for patient's own files
+  const patientFilesList = document.getElementById('patientFilesList');
+  if (patientFilesList && document.querySelector('[data-user-id]')) {
+    const userId = document.querySelector('[data-user-id]').getAttribute('data-user-id');
+    loadPatientFiles(userId);
+  }
+});
+
+async function loadPatientFiles(userId) {
+  try {
+    const response = await fetch(`/files/patient/${userId}`);
+    if (!response.ok) throw new Error('Failed to load files');
+    
+    const files = await response.json();
+    const filesList = document.getElementById('patientFilesList');
+    
+    if (!filesList) return;
+    
+    if (files.length === 0) {
+      filesList.innerHTML = '<div class="px-6 py-8 text-center"><p class="text-sm text-gray-500">No medical files yet</p></div>';
+      return;
+    }
+    
+    filesList.innerHTML = files.map(file => `
+      <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-2">
+            <svg class="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+              <polyline points="13 2 13 9 20 9"/>
+            </svg>
+            <a href="/files/download/${file.id}" class="text-sm font-medium text-blue-600 hover:underline">
+              ${file.original_filename}
+            </a>
+          </div>
+          <div class="flex flex-wrap gap-3 text-xs text-gray-400">
+            <span>${(file.file_size_bytes / 1024).toFixed(1)} KB</span>
+            <span>${new Date(file.created_at).toLocaleDateString()}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch (error) {
+    console.error('Error loading patient files:', error);
+  }
+}
+</script>
 
 {% endif %}
 

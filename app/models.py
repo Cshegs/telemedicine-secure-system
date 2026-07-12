@@ -89,3 +89,23 @@ class CryptoOperationLog(Base):
     sid = Column(String(100), nullable=False)
     execution_time_ms = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PatientFile(Base):
+    __tablename__ = "patient_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    doctor_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    file_type = Column(String(100), nullable=False)
+    storage_path = Column(String(255), nullable=False)
+    nonce = Column(String(50), nullable=False)
+    kfinal_hex = Column(Text, nullable=False)
+    file_size_bytes = Column(Integer, nullable=False)
+    crypto_log_id = Column(Integer, ForeignKey("crypto_operation_logs.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    patient = relationship("User", foreign_keys=[patient_id])
+    doctor = relationship("User", foreign_keys=[doctor_id])
+    crypto_log = relationship("CryptoOperationLog")
