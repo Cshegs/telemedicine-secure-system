@@ -14,9 +14,64 @@
   const input      = document.getElementById('msgInput');
   const statusEl   = document.getElementById('wsStatus');
   const cryptoBar  = document.getElementById('cryptoBar');
+  const notifyPanel = document.getElementById('cryptoNotifyPanel');
+  const notifyText  = document.getElementById('cryptoNotifyText');
 
   let ws;
   let reconnectDelay = 1000;
+  let notifyTimer = null;
+
+  function truncateMiddle(value, headLength, tailLength = 0) {
+    if (!value) return '';
+    if (value.length <= headLength + tailLength) return value;
+    const start = value.slice(0, headLength);
+    const end = tailLength > 0 ? value.slice(-tailLength) : '';
+    return `${start}...${end}`;
+  }
+
+  function hideCryptoNotification() {
+    if (!notifyPanel) return;
+    notifyPanel.classList.add('opacity-0', 'translate-x-4');
+    notifyPanel.classList.remove('opacity-100', 'translate-x-0');
+
+    window.clearTimeout(notifyTimer);
+    notifyTimer = window.setTimeout(() => {
+      notifyPanel.classList.add('hidden');
+    }, 300);
+  }
+
+  function showCryptoNotification(data) {
+    if (!notifyPanel || !notifyText) return;
+
+    const profileName = data.profile_name || (data.operation_type || 'chat').toUpperCase();
+    const alpha = data.alpha;
+    const beta = data.beta;
+    const sid = truncateMiddle(data.sid || '', 12);
+    const kfPreview = data.kf_preview || '';
+    const ciphertext = data.ciphertext_hex || '';
+    const timeMs = Number(data.execution_time_ms || 0).toFixed(3);
+
+    notifyText.textContent =
+      `🔐 Message Encrypted — ${profileName}\n` +
+      `┌─────────────────────────────────────────┐\n` +
+      `│ α=${alpha}  β=${beta}  |  Time: ${timeMs}ms         │\n` +
+      `│ SID: ${sid}                  │\n` +
+      `│ Kf:  ${kfPreview}...                       │\n` +
+      `│ Cipher: ${ciphertext}...            │\n` +
+      `└─────────────────────────────────────────┘\n` +
+      `✓ Transmitted as encrypted ciphertext`;
+
+    window.clearTimeout(notifyTimer);
+    notifyPanel.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      notifyPanel.classList.remove('opacity-0', 'translate-x-4');
+      notifyPanel.classList.add('opacity-100', 'translate-x-0');
+    });
+
+    notifyTimer = window.setTimeout(() => {
+      hideCryptoNotification();
+    }, 4000);
+  }
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -100,13 +155,29 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
+
     const text = input.value.trim();
     if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(text);
+
+    const response = await fetch('/chat/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        other_id: OTHER_USER_ID,
+        text,
+      }),
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json();
     input.value = '';
     input.focus();
+    showCryptoNotification(data);
   });
 
   // Scroll history to bottom on load

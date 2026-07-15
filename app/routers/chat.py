@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from typing import DefaultDict
 from collections import defaultdict
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Depends, Query
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Depends, Query, HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -71,6 +71,73 @@ def _other_user(db: Session, current_user: User, other_id: int) -> User | None:
     if current_user.role == "patient" and other.role == "doctor":
         return other if current_user.assigned_doctor_id == other.id else None
     return None
+
+
+async def _broadcast_chat_payload(room: str, payload: dict) -> None:
+    """Broadcast a JSON payload to all live sockets in the room."""
+    if room not in _rooms:
+        return
+
+    message = json.dumps(payload)
+    dead = set()
+    for ws in list(_rooms[room]):
+        try:
+            await ws.send_text(message)
+        except Exception:
+            dead.add(ws)
+    _rooms[room] -= dead
+    if not _rooms[room]:
+        del _rooms[room]
+
+
+def _chat_crypto_response(result: dict, ciphertext_hex: str) -> dict:
+    """Shape the crypto metadata returned to the chat client."""
+    return {
+        "operation_type": result["operation_type"],
+        "profile_name": result["profile_name"],
+        "alpha": result["alpha"],
+        "beta": result["beta"],
+        "sid": result["sid"],
+        "execution_time_ms": result["execution_time_ms"],
+        "kf_preview": result["kf_preview"],
+        "ciphertext_hex": ciphertext_hex[:32],
+    }
+
+
+async def _save_chat_message(db: Session, user: User, other: User, text: str) -> dict:
+    """Encrypt, persist, and broadcast a chat message, then return crypto metadata."""
+    patient_id = _patient_id_for_pair(user, other)
+
+    result = establish_session_key("chat", str(patient_id), db=db)
+    kfinal = result["kfinal"]
+
+    ct_hex, nonce_hex = aes_encrypt(kfinal, text)
+    wrapped = wrap_key(kfinal)
+
+    msg = ChatMessage(
+        sender_id=user.id,
+        receiver_id=other.id,
+        ciphertext=ct_hex,
+        nonce=nonce_hex,
+        wrapped_key=wrapped,
+        crypto_log_id=result.get("log_id"),
+    )
+    db.add(msg)
+    db.commit()
+
+    payload = {
+        "sender_id": user.id,
+        "sender_name": user.full_name,
+        "text": text,
+        "timestamp": datetime.now(timezone.utc).strftime("%H:%M"),
+        "exec_ms": result["execution_time_ms"],
+        "alpha": result["alpha"],
+        "beta": result["beta"],
+        "kf_preview": result["kf_preview"],
+    }
+    await _broadcast_chat_payload(_room_key(user.id, other.id), payload)
+
+    return _chat_crypto_response(result, ct_hex)
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +196,30 @@ async def chat_page(
 
 
 # ---------------------------------------------------------------------------
+# HTTP — save chat message from the client
+# ---------------------------------------------------------------------------
+
+@router.post("/chat/messages")
+async def send_chat_message(request: Request, db: Session = Depends(get_db)):
+    user = get_session_user(request, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    data = await request.json()
+    other_id = data.get("other_id")
+    text = (data.get("text") or "").strip()
+
+    if not other_id or not text:
+        raise HTTPException(status_code=400, detail="Missing chat recipient or text")
+
+    other = _other_user(db, user, int(other_id))
+    if not other:
+        raise HTTPException(status_code=403, detail="Invalid chat recipient")
+
+    return await _save_chat_message(db, user, other, text)
+
+
+# ---------------------------------------------------------------------------
 # WebSocket — real-time messaging
 # ---------------------------------------------------------------------------
 
@@ -150,7 +241,6 @@ async def chat_ws(websocket: WebSocket, other_id: int):
             return
 
         room = _room_key(user.id, other.id)
-        patient_id = _patient_id_for_pair(user, other)
 
         await websocket.accept()
         _rooms[room].add(websocket)
@@ -162,43 +252,7 @@ async def chat_ws(websocket: WebSocket, other_id: int):
                 if not text:
                     continue
 
-                # Run six-step pipeline (BALANCED_PROFILE)
-                result = establish_session_key("chat", str(patient_id), db=db)
-                kfinal = result["kfinal"]
-
-                # Encrypt and persist
-                ct_hex, nonce_hex = aes_encrypt(kfinal, text)
-                wrapped = wrap_key(kfinal)
-
-                msg = ChatMessage(
-                    sender_id=user.id,
-                    receiver_id=other.id,
-                    ciphertext=ct_hex,
-                    nonce=nonce_hex,
-                    wrapped_key=wrapped,
-                    crypto_log_id=result.get("log_id"),
-                )
-                db.add(msg)
-                db.commit()
-
-                # Broadcast plaintext + metadata to every socket in the room
-                payload = json.dumps({
-                    "sender_id":   user.id,
-                    "sender_name": user.full_name,
-                    "text":        text,
-                    "timestamp":   datetime.now(timezone.utc).strftime("%H:%M"),
-                    "exec_ms":     result["execution_time_ms"],
-                    "alpha":       result["alpha"],
-                    "beta":        result["beta"],
-                    "kf_preview":  result["kf_preview"],
-                })
-                dead = set()
-                for ws in list(_rooms[room]):
-                    try:
-                        await ws.send_text(payload)
-                    except Exception:
-                        dead.add(ws)
-                _rooms[room] -= dead
+                await _save_chat_message(db, user, other, text)
 
         except WebSocketDisconnect:
             pass

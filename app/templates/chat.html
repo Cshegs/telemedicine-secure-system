@@ -38,8 +38,16 @@
   <!-- ── Chat panel ─────────────────────────────────────────────── -->
   <div class="flex-1 flex flex-col min-w-0 min-h-0">
     {% if other %}
-    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col relative
                 h-[500px] lg:h-full">
+
+      <div id="cryptoNotifyPanel"
+           class="absolute top-4 right-4 z-50 hidden max-w-md rounded-xl border border-green-500/30
+                  bg-slate-950/95 px-4 py-3 font-mono text-green-400 shadow-2xl shadow-black/40
+                  backdrop-blur-sm transition-all duration-300 ease-out opacity-0 translate-x-4
+                  pointer-events-none">
+        <pre id="cryptoNotifyText" class="whitespace-pre-wrap text-[11px] leading-5 m-0"></pre>
+      </div>
 
       <!-- Chat header -->
       <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
