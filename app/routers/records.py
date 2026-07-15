@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Request, Depends, Form, Query
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -15,6 +17,143 @@ templates = Jinja2Templates(directory="app/templates")
 
 RECORD_TYPES = ["Diagnosis", "Prescription", "Lab Results", "Progress Note", "Referral"]
 
+STRUCTURED_TESTS = {
+    "blood_pressure": {
+        "label": "Blood Pressure",
+        "fields": [
+            {"name": "date", "label": "Date of test", "type": "date"},
+            {"name": "systolic", "label": "Systolic pressure", "type": "number", "unit": "mmHg", "step": "1"},
+            {"name": "diastolic", "label": "Diastolic pressure", "type": "number", "unit": "mmHg", "step": "1"},
+            {"name": "pulse", "label": "Pulse", "type": "number", "unit": "bpm", "step": "1"},
+            {
+                "name": "position",
+                "label": "Patient position",
+                "type": "select",
+                "options": ["Sitting", "Standing", "Lying down"],
+            },
+            {"name": "notes", "label": "Notes", "type": "textarea"},
+        ],
+    },
+    "blood_glucose": {
+        "label": "Blood Glucose",
+        "fields": [
+            {"name": "date", "label": "Date of test", "type": "date"},
+            {
+                "name": "timing",
+                "label": "Test timing",
+                "type": "select",
+                "options": ["Fasting", "2-hour post-meal", "Random"],
+            },
+            {"name": "glucose_value", "label": "Glucose value", "type": "number", "step": "0.1"},
+            {"name": "unit", "label": "Unit", "type": "select", "options": ["mg/dL", "mmol/L"]},
+            {"name": "notes", "label": "Notes", "type": "textarea"},
+        ],
+    },
+    "temperature": {
+        "label": "Temperature",
+        "fields": [
+            {"name": "date", "label": "Date of test", "type": "date"},
+            {"name": "temperature_value", "label": "Temperature value", "type": "number", "step": "0.1"},
+            {"name": "unit", "label": "Unit", "type": "select", "options": ["C", "F"]},
+            {
+                "name": "method",
+                "label": "Method",
+                "type": "select",
+                "options": ["Oral", "Axillary", "Rectal", "Ear"],
+            },
+        ],
+    },
+    "oxygen_saturation": {
+        "label": "Oxygen Saturation (SpO2)",
+        "fields": [
+            {"name": "date", "label": "Date of test", "type": "date"},
+            {"name": "spo2", "label": "SpO2 %", "type": "number", "min": "0", "max": "100", "step": "1"},
+            {"name": "pulse_rate", "label": "Pulse rate", "type": "number", "unit": "bpm", "step": "1"},
+            {"name": "notes", "label": "Notes", "type": "textarea"},
+        ],
+    },
+    "bmi_assessment": {
+        "label": "BMI Assessment",
+        "fields": [
+            {"name": "date", "label": "Date of test", "type": "date"},
+            {"name": "weight", "label": "Weight", "type": "number", "step": "0.1"},
+            {"name": "height", "label": "Height", "type": "number", "step": "0.1"},
+            {
+                "name": "unit_system",
+                "label": "Unit system",
+                "type": "select",
+                "options": ["Metric kg/cm", "Imperial lb/ft"],
+                "values": ["metric", "imperial"],
+            },
+            {"name": "bmi", "label": "Calculated BMI", "type": "number", "readonly": True, "step": "0.1"},
+        ],
+    },
+    "lipid_panel": {
+        "label": "Lipid Panel",
+        "fields": [
+            {"name": "date", "label": "Date of test", "type": "date"},
+            {"name": "total_cholesterol", "label": "Total Cholesterol", "type": "number", "step": "0.1"},
+            {"name": "hdl", "label": "HDL", "type": "number", "step": "0.1"},
+            {"name": "ldl", "label": "LDL", "type": "number", "step": "0.1"},
+            {"name": "triglycerides", "label": "Triglycerides", "type": "number", "step": "0.1"},
+            {"name": "unit", "label": "Unit", "type": "select", "options": ["mg/dL", "mmol/L"]},
+        ],
+    },
+}
+
+
+def _structured_label(test_type: str) -> str | None:
+    spec = STRUCTURED_TESTS.get(test_type)
+    return spec["label"] if spec else None
+
+
+def _parse_structured_record(content: str) -> dict | None:
+    try:
+        payload = json.loads(content)
+    except Exception:
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    test_type = payload.get("test_type")
+    if test_type not in STRUCTURED_TESTS:
+        return None
+
+    spec = STRUCTURED_TESTS[test_type]
+    display_fields = []
+    for field in spec["fields"]:
+        name = field["name"]
+        if name not in payload:
+            continue
+
+        value = payload.get(name)
+        if value in (None, ""):
+            continue
+
+        if field.get("type") == "select" and "options" in field:
+            options = field["options"]
+            values = field.get("values", options)
+            try:
+                option_index = values.index(value)
+                value = options[option_index]
+            except ValueError:
+                pass
+
+        display_fields.append({
+            "label": field["label"],
+            "value": value,
+            "unit": field.get("unit"),
+            "name": name,
+            "readonly": field.get("readonly", False),
+        })
+
+    return {
+        "test_type": test_type,
+        "title": spec["label"],
+        "fields": display_fields,
+    }
+
 
 def _decrypt_record(rec: PatientRecord) -> str:
     """Unwraps kfinal from DB, then decrypts the record content."""
@@ -23,6 +162,18 @@ def _decrypt_record(rec: PatientRecord) -> str:
         return aes_decrypt(kfinal, rec.ciphertext, rec.nonce)
     except Exception:
         return "[Decryption error — key or ciphertext may be corrupt]"
+
+
+def _load_record_view(rec: PatientRecord) -> dict:
+    content = _decrypt_record(rec)
+    return {
+        "id": rec.id,
+        "record_type": rec.record_type,
+        "content": content,
+        "structured_content": _parse_structured_record(content),
+        "created_at": rec.created_at,
+        "crypto_log": rec.crypto_log,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -59,13 +210,7 @@ async def records_page(
                     .all()
                 )
                 records = [
-                    {
-                        "id": r.id,
-                        "record_type": r.record_type,
-                        "content": _decrypt_record(r),
-                        "created_at": r.created_at,
-                        "crypto_log": r.crypto_log,
-                    }
+                    _load_record_view(r)
                     for r in raw
                 ]
 
@@ -75,6 +220,7 @@ async def records_page(
             "selected_patient": selected_patient,
             "records": records,
             "record_types": RECORD_TYPES,
+            "structured_tests": STRUCTURED_TESTS,
             "flash": request.query_params.get("flash"),
         })
 
@@ -87,18 +233,13 @@ async def records_page(
             .all()
         )
         records = [
-            {
-                "id": r.id,
-                "record_type": r.record_type,
-                "content": _decrypt_record(r),
-                "created_at": r.created_at,
-                "crypto_log": r.crypto_log,
-            }
+            _load_record_view(r)
             for r in raw
         ]
         return templates.TemplateResponse(request, "records.html", {
             "user": user,
             "records": records,
+            "structured_tests": STRUCTURED_TESTS,
         })
 
 

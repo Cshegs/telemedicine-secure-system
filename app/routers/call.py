@@ -1,36 +1,18 @@
 """
-Phase 5 — WebRTC video calling with hybrid session key establishment.
+Jitsi Meet room-based calling with hybrid session key establishment.
 
-What the hybrid framework secures here:
-  - The CALL SESSION RECORD (who called whom, when) is encrypted via the
-    SPEED_PROFILE pipeline BEFORE the WebRTC handshake begins.
-  - The live audio/video stream is encrypted natively by WebRTC using
-    DTLS-SRTP — this happens automatically in the browser and is not
-    replaced by this prototype (doing so would require a media server).
-
-What this demonstrates:
-  - Speed-priority key fusion (alpha=0.7, beta=0.3) is appropriate for
-    live calls because session key setup must complete before the call
-    connects.  The timing is shown to the user during the "Establishing
-    secure session..." phase, making the trade-off from Table I visible.
-
-Flow:
-  1. Caller opens /call?with=<other_id>
-  2. Clicks "Start Secure Call" → POST /call/start-session
-     Server runs establish_session_key("video_call", patient_id),
-     creates CallSession row, returns timing data.
-  3. JS displays "Session established in X ms" for 2s, then begins WebRTC.
-  4. Signaling: both peers connect to ws://host/ws/call/<other_id>.
-     Server relays offer / answer / candidate / hangup messages.
-  5. On hangup → POST /call/end → server records ended_at on CallSession.
+The hybrid framework secures the call session record before the room is
+joined. The browser then connects to a Jitsi room for real audio/video.
 """
 
 import json
+import uuid
+from urllib.parse import urlencode
 from datetime import datetime, timezone
 from collections import defaultdict
 from typing import DefaultDict
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Depends, Query
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -78,6 +60,8 @@ def _doctor_id(user: User, other: User) -> int:
 @router.get("/call")
 async def call_page(
     request: Request,
+    room_url: str | None = Query(None),
+    call_session_id: int | None = Query(None),
     db: Session = Depends(get_db),
 ):
     user = get_session_user(request, db)
@@ -125,15 +109,17 @@ async def call_page(
         "user":         user,
         "contacts":     contacts,
         "call_history": call_history,
+        "room_url":     room_url,
+        "call_session_id": call_session_id,
     })
 
 
 # ---------------------------------------------------------------------------
-# API — establish session key before WebRTC handshake
+# API — establish session key before Jitsi room creation
 # ---------------------------------------------------------------------------
 
-@router.post("/call/start-session")
-async def start_call_session(
+@router.post("/call/create-room")
+async def create_call_room(
     request: Request,
     db: Session = Depends(get_db),
 ):
@@ -141,8 +127,14 @@ async def start_call_session(
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
+    if user.role != "doctor":
+        return JSONResponse({"error": "Only doctors can start calls"}, status_code=403)
+
     body = await request.json()
-    other_id = int(body.get("other_id", 0))
+    patient_id = int(body.get("patient_id", 0))
+    voice_only = bool(body.get("voice_only", False))
+
+    other_id = patient_id
     other = _validate_pair(db, user, other_id)
     if not other:
         return JSONResponse({"error": "Invalid call target"}, status_code=400)
@@ -150,8 +142,11 @@ async def start_call_session(
     pid = _patient_id(user, other)
     did = _doctor_id(user, other)
 
-    # Run six-step pipeline with SPEED_PROFILE — must complete before call starts
+    # Run the hybrid pipeline before room creation so the timing is visible.
     result = establish_session_key("video_call", str(pid), db=db)
+
+    room_name = uuid.uuid4().hex[:12]
+    room_url = f"https://meet.jit.si/telemed-{room_name}"
 
     # Open a CallSession row (ended_at filled in by /call/end)
     session = CallSession(
@@ -163,15 +158,23 @@ async def start_call_session(
     db.commit()
     db.refresh(session)
 
+    join_url = f"{str(request.base_url).rstrip('/')}/call?{urlencode({'room_url': room_url, 'call_session_id': session.id})}"
+
     return JSONResponse({
-        "call_session_id":  session.id,
-        "execution_time_ms": result["execution_time_ms"],
-        "alpha":            result["alpha"],
-        "beta":             result["beta"],
-        "profile_name":     result["profile_name"],
-        "kf_preview":       result["kf_preview"],
-        "kfinal_preview":   result["kfinal_preview"],
-        "sid":              result["sid"],
+        "call_session_id": session.id,
+        "room_name": f"telemed-{room_name}",
+        "room_url": room_url,
+        "join_url": join_url,
+        "voice_only": voice_only,
+        "crypto": {
+            "execution_time_ms": result["execution_time_ms"],
+            "alpha": result["alpha"],
+            "beta": result["beta"],
+            "profile_name": result["profile_name"],
+            "kf_preview": result["kf_preview"],
+            "kfinal_preview": result["kfinal_preview"],
+            "sid": result["sid"],
+        },
     })
 
 

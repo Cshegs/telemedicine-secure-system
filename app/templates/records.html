@@ -3,6 +3,35 @@
 
 {% block content %}
 
+{% macro render_structured_input(field) %}
+  {% if field.type == 'select' %}
+  <div>
+    <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ field.label }}</label>
+    <select name="{{ field.name }}" class="structured-input w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" {% if field.readonly %}disabled{% endif %}>
+      <option value="">Select...</option>
+      {% for option in field.options %}
+      <option value="{{ field.values[loop.index0] if field.values is defined else option }}">{{ option }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% elif field.type == 'textarea' %}
+  <div class="sm:col-span-2">
+    <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ field.label }}</label>
+    <textarea name="{{ field.name }}" rows="3" class="structured-input w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none" {% if field.readonly %}readonly{% endif %}></textarea>
+  </div>
+  {% else %}
+  <div {% if field.name == 'bmi' %}class="sm:col-span-2"{% endif %}>
+    <label class="block text-xs font-medium text-gray-600 mb-1.5">{{ field.label }}</label>
+    <div class="flex items-center gap-2">
+      <input type="{{ field.type }}" name="{{ field.name }}" {% if field.min is defined %}min="{{ field.min }}"{% endif %} {% if field.max is defined %}max="{{ field.max }}"{% endif %} {% if field.step is defined %}step="{{ field.step }}"{% endif %} class="structured-input w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" {% if field.readonly %}readonly{% endif %}>
+      {% if field.unit %}
+      <span class="text-xs text-gray-500 whitespace-nowrap">{{ field.unit }}</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+{% endmacro %}
+
 {% if user.role == "doctor" %}
 <!-- ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
      DOCTOR VIEW
@@ -71,6 +100,25 @@
       <form method="POST" action="/records" class="px-6 py-5 space-y-4">
         <input type="hidden" name="patient_id" value="{{ selected_patient.id }}" />
 
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Record Mode</label>
+            <select id="recordMode" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+              <option value="free_text">Free-text note</option>
+              <option value="structured">Structured test result</option>
+            </select>
+          </div>
+          <div id="structuredSelectorWrap" class="hidden">
+            <label class="block text-xs font-medium text-gray-600 mb-1.5">Test Type</label>
+            <select id="structuredTestType" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+              <option value="">Select test type...</option>
+              {% for test_key, test in structured_tests.items() %}
+              <option value="{{ test_key }}">{{ test.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="sm:col-span-1">
             <label class="block text-xs font-medium text-gray-600 mb-1.5">Record Type</label>
@@ -86,11 +134,25 @@
 
           <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-600 mb-1.5">Content</label>
-            <textarea name="content" required rows="3"
+            <textarea id="freeTextContent" name="content" required rows="3"
                       placeholder="Diagnosis, prescription details, lab resultsÔÇª"
                       class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm
                              text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500
                              focus:border-blue-500 resize-none"></textarea>
+          </div>
+        </div>
+
+        <div id="structuredForm" class="hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% for test_key, test in structured_tests.items() %}
+            <div class="structured-panel hidden sm:col-span-2" data-test-panel="{{ test_key }}">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {% for field in test.fields %}
+                  {{ render_structured_input(field) }}
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
           </div>
         </div>
 
@@ -299,7 +361,24 @@
       {% endif %}
     </div>
     <div class="px-6 py-5">
+      {% if rec.structured_content %}
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div class="mb-3">
+          <p class="text-sm font-semibold text-slate-900">{{ rec.structured_content.title }}</p>
+          <p class="text-xs text-slate-500">Structured clinical result</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {% for field in rec.structured_content.fields %}
+          <div class="rounded-lg bg-white border border-slate-200 px-3 py-2">
+            <p class="text-[11px] uppercase tracking-wide text-slate-500">{{ field.label }}</p>
+            <p class="text-sm font-medium text-slate-900 mt-0.5">{{ field.value }}{% if field.unit %} {{ field.unit }}{% endif %}</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
       <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{{ rec.content }}</p>
+      {% endif %}
       {% if rec.crypto_log %}
       <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-400 font-mono">
         <span>Kf = {{ rec.crypto_log.kf_preview }}ÔÇª</span>
@@ -336,8 +415,111 @@
 
 {% endif %}
 
+<script id="structuredTestsData" type="application/json">{{ structured_tests | tojson }}</script>
 <script>
 // ===== FILE UPLOAD AND LISTING =====
+
+const structuredTests = JSON.parse(document.getElementById('structuredTestsData').textContent || '{}');
+const recordMode = document.getElementById('recordMode');
+const structuredSelectorWrap = document.getElementById('structuredSelectorWrap');
+const structuredTestType = document.getElementById('structuredTestType');
+const structuredForm = document.getElementById('structuredForm');
+const freeTextContent = document.getElementById('freeTextContent');
+
+function setStructuredPanel(testType) {
+  document.querySelectorAll('.structured-panel').forEach(panel => {
+    panel.classList.toggle('hidden', panel.dataset.testPanel !== testType);
+  });
+}
+
+function updateBmiField() {
+  if (structuredTestType.value !== 'bmi_assessment') return;
+
+  const weightInput = document.querySelector('[name="weight"]');
+  const heightInput = document.querySelector('[name="height"]');
+  const unitSystemInput = document.querySelector('[name="unit_system"]');
+  const bmiInput = document.querySelector('[name="bmi"]');
+
+  if (!weightInput || !heightInput || !unitSystemInput || !bmiInput) return;
+
+  const weight = Number(weightInput.value);
+  const height = Number(heightInput.value);
+  if (!weight || !height) {
+    bmiInput.value = '';
+    return;
+  }
+
+  const useImperial = unitSystemInput.value === 'imperial';
+  const weightKg = useImperial ? weight * 0.45359237 : weight;
+  const heightMeters = useImperial ? height * 0.3048 : height / 100;
+  bmiInput.value = (weightKg / (heightMeters * heightMeters)).toFixed(1);
+}
+
+function collectStructuredPayload(testType) {
+  const spec = structuredTests[testType];
+  if (!spec) return null;
+
+  const payload = { test_type: testType };
+  for (const field of spec.fields) {
+    const input = document.querySelector(`[name="${field.name}"]`);
+    if (!input) continue;
+
+    if (field.name === 'bmi') {
+      payload[field.name] = input.value === '' ? '' : Number(input.value);
+      continue;
+    }
+
+    let value = input.value;
+    if (field.type === 'number' && value !== '') {
+      value = Number(value);
+    }
+    payload[field.name] = value;
+  }
+
+  return payload;
+}
+
+function syncStructuredContent() {
+  if (recordMode.value !== 'structured') return;
+  updateBmiField();
+  const payload = collectStructuredPayload(structuredTestType.value);
+  freeTextContent.value = payload ? JSON.stringify(payload) : '';
+}
+
+function updateRecordMode() {
+  const isStructured = recordMode.value === 'structured';
+  structuredSelectorWrap.classList.toggle('hidden', !isStructured);
+  structuredForm.classList.toggle('hidden', !isStructured);
+  freeTextContent.closest('.sm\:col-span-2').classList.toggle('hidden', isStructured);
+
+  if (!isStructured) {
+    structuredTestType.value = '';
+    freeTextContent.value = freeTextContent.value;
+    return;
+  }
+
+  setStructuredPanel(structuredTestType.value);
+  syncStructuredContent();
+}
+
+recordMode.addEventListener('change', updateRecordMode);
+structuredTestType.addEventListener('change', () => {
+  setStructuredPanel(structuredTestType.value);
+  syncStructuredContent();
+});
+
+document.querySelectorAll('#structuredForm input, #structuredForm select, #structuredForm textarea').forEach(input => {
+  input.addEventListener('input', syncStructuredContent);
+  input.addEventListener('change', syncStructuredContent);
+});
+
+document.querySelector('form[action="/records"]').addEventListener('submit', () => {
+  if (recordMode.value === 'structured') {
+    syncStructuredContent();
+  }
+});
+
+updateRecordMode();
 
 function updateFileName(input) {
   const display = document.getElementById('fileNameDisplay');

@@ -3,9 +3,14 @@
 
 {% block head %}
 <style>
-  #remoteVideo { background: #111; }
-  #localVideo  { background: #222; }
-  video { width: 100%; height: 100%; object-fit: cover; }
+  #call-container {
+    min-height: 420px;
+    background: #f8fafc;
+  }
+
+  #call-container iframe {
+    border-radius: 0.75rem;
+  }
 </style>
 {% endblock %}
 
@@ -97,18 +102,48 @@
         </h2>
         <p class="text-sm text-gray-500 max-w-sm mb-6">
           A hybrid ECC–Kyber session key will be established using the
-          <strong>SPEED_PROFILE</strong> (α=0.7, β=0.3) before the WebRTC handshake begins.
+          <strong>SPEED_PROFILE</strong> (α=0.7, β=0.3) before the Jitsi room is created.
         </p>
-        <button id="startCallBtn" onclick="startCall()"
-                class="hidden px-8 py-3 bg-blue-700 hover:bg-blue-800 text-white font-semibold
-                       rounded-xl transition-colors shadow-sm flex items-center gap-2">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="23 7 16 12 23 17 23 7"/>
-            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-          </svg>
-          Start Secure Call
-        </button>
+        <div class="flex flex-col items-center gap-4">
+          <label class="flex items-center gap-3 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-full px-4 py-2">
+            <input id="voiceOnlyToggle" type="checkbox" class="h-4 w-4 text-blue-700 border-gray-300 rounded">
+            Voice only
+          </label>
+
+          <button id="startCallBtn" onclick="startCall()"
+                  class="hidden px-8 py-3 bg-blue-700 hover:bg-blue-800 text-white font-semibold
+                         rounded-xl transition-colors shadow-sm flex items-center gap-2">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+            Start Call
+          </button>
+
+          {% if room_url %}
+          <button id="joinCallBtn" onclick="joinSharedRoom()"
+                  class="px-8 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-xl transition-colors shadow-sm flex items-center gap-2">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3h6v6"/>
+              <path d="M10 14L21 3"/>
+              <path d="M5 5h6"/>
+              <path d="M5 19h6"/>
+              <path d="M19 14v5h-5"/>
+            </svg>
+            Join Call
+          </button>
+          {% endif %}
+        </div>
+
+        <div id="roomSharePanel" class="hidden mt-6 w-full max-w-xl bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4 text-left">
+          <p class="text-sm font-semibold text-emerald-900">Shared room link</p>
+          <p class="text-xs text-emerald-700 mt-1 break-all" id="roomShareLink"></p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button type="button" onclick="copyShareLink()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800">Copy link</button>
+          </div>
+        </div>
       </div>
 
       <!-- ── State: establishing key ────────────────────────────── -->
@@ -120,9 +155,9 @@
             <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
           </svg>
         </div>
-        <h2 class="text-lg font-semibold text-gray-900 mb-1">Establishing Secure Session…</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-1">Establishing secure session…</h2>
         <p class="text-sm text-gray-500 mb-4">
-          Running hybrid ECC–Kyber pipeline with <strong>SPEED_PROFILE</strong> (α=0.7, β=0.3)
+          <span id="establishingDetails">Running hybrid ECC–Kyber pipeline with <strong>SPEED_PROFILE</strong> (α=0.7, β=0.3)</span>
         </p>
         <!-- Live pipeline steps -->
         <div class="w-full max-w-sm space-y-2 text-left">
@@ -154,7 +189,7 @@
         </div>
       </div>
 
-      <!-- ── State: key established (brief display before WebRTC) ─ -->
+      <!-- ── State: key established (brief display before call join) ─ -->
       <div id="stateKeyReady" class="hidden flex flex-col items-center justify-center
                                      px-8 py-16 text-center">
         <div class="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mb-4">
@@ -164,7 +199,7 @@
           </svg>
         </div>
         <h2 class="text-lg font-semibold text-gray-900 mb-1">Session Key Established</h2>
-        <p class="text-sm text-gray-500 mb-5">Starting WebRTC handshake…</p>
+        <p class="text-sm text-gray-500 mb-5">Joining secure call room…</p>
         <div class="bg-gray-50 border border-gray-200 rounded-xl px-6 py-4 w-full max-w-sm text-left space-y-2">
           <div class="flex justify-between text-xs">
             <span class="text-gray-500">Profile</span>
@@ -186,42 +221,28 @@
             <span class="text-gray-500">Session ID</span>
             <span class="font-mono text-gray-400 truncate ml-2" id="krSid"></span>
           </div>
+          <div class="flex justify-between text-xs">
+            <span class="text-gray-500">Room URL</span>
+            <span class="font-mono text-gray-400 truncate ml-2" id="krRoomUrl"></span>
+          </div>
         </div>
       </div>
 
       <!-- ── State: in-call ─────────────────────────────────────── -->
       <div id="stateInCall" class="hidden flex-col" style="min-height:340px;height:clamp(340px,55vw,520px);">
-        <!-- Video grid -->
-        <div class="flex-1 relative bg-gray-900 rounded-t-xl overflow-hidden">
-          <!-- Remote video (large) -->
-          <video id="remoteVideo" autoplay playsinline
-                 class="absolute inset-0 w-full h-full object-cover"></video>
-
-          <!-- Remote name overlay -->
-          <div class="absolute top-4 left-4 bg-black/50 text-white text-xs px-3 py-1.5
-                      rounded-full backdrop-blur-sm" id="remoteLabel">Connecting…</div>
-
-          <!-- Local video (picture-in-picture) -->
-          <div class="absolute bottom-4 right-4 w-32 sm:w-40 aspect-video rounded-xl overflow-hidden
-                      border-2 border-white/30 shadow-lg">
-            <video id="localVideo" autoplay playsinline muted
-                   class="w-full h-full object-cover"></video>
-          </div>
-
-          <!-- Crypto status pill -->
-          <div class="absolute top-4 right-4 bg-green-900/80 text-green-300 text-xs px-3 py-1.5
-                      rounded-full backdrop-blur-sm flex items-center gap-1.5">
+        <div class="flex-1 relative bg-white rounded-t-xl overflow-hidden border border-gray-100">
+          <div id="call-container" class="w-full h-full"></div>
+          <div class="absolute top-4 left-4 bg-black/50 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm" id="remoteLabel">Connecting…</div>
+          <div class="absolute top-4 right-4 bg-green-900/80 text-green-300 text-xs px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5">
             <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
-            DTLS-SRTP · SPEED_PROFILE
+            Jitsi room · SPEED_PROFILE
           </div>
         </div>
 
-        <!-- Call controls -->
-        <div class="flex items-center justify-center gap-4 py-4 border-t border-gray-100
-                    bg-white rounded-b-xl">
+        <div class="flex items-center justify-center gap-4 py-4 border-t border-gray-100 bg-white rounded-b-xl">
           <button id="muteBtn" onclick="toggleMute()"
                   class="w-12 h-12 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center
                          justify-center transition-colors" title="Mute">
@@ -284,6 +305,10 @@
 <script>
   const CURRENT_USER_ID = {{ user.id }};
   const CURRENT_USER_NAME = {{ user.full_name | tojson }};
+  const CURRENT_USER_ROLE = {{ user.role | tojson }};
+  const INITIAL_ROOM_URL = {{ room_url | default('', true) | tojson }};
+  const INITIAL_CALL_SESSION_ID = {{ call_session_id | default(None) | tojson }};
 </script>
+<script src="https://meet.jit.si/external_api.js"></script>
 <script src="/static/js/call.js"></script>
 {% endblock %}
