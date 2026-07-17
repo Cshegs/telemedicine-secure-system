@@ -70,7 +70,7 @@
 
     notifyTimer = window.setTimeout(() => {
       hideCryptoNotification();
-    }, 4000);
+    }, 10000);
   }
 
   function connect() {
