@@ -78,7 +78,7 @@ async def crypto_lab_page(request: Request, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------------
-# JSON data endpoint — polled by the dashboard for live refresh
+# JSON data endpoint --polled by the dashboard for live refresh
 # ---------------------------------------------------------------------------
 
 @router.get("/crypto-lab/data")
@@ -138,7 +138,7 @@ async def crypto_lab_data(request: Request, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------------
-# "Run Live Comparison" — fires all three profiles and returns results
+# "Run Live Comparison" --fires all three profiles and returns results
 # ---------------------------------------------------------------------------
 
 @router.post("/crypto-lab/compare")
@@ -262,7 +262,7 @@ async def crypto_lab_indistinguishability_test(request: Request, db: Session = D
 
 
 # ---------------------------------------------------------------------------
-# /crypto-test — kept from Phase 2 for quick manual pipeline checks
+# /crypto-test --kept from Phase 2 for quick manual pipeline checks
 # ---------------------------------------------------------------------------
 
 @router.get("/crypto-test")

@@ -1,5 +1,5 @@
 ﻿{% extends "base.html" %}
-{% block title %}Patient Records ÔÇô TeleMedSecure{% endblock %}
+{% block title %}Patient Records - TeleMedSecure{% endblock %}
 
 {% block content %}
 
@@ -42,7 +42,7 @@
     <h1 class="text-2xl font-bold text-gray-900">Patient Records</h1>
     <p class="text-sm text-gray-500 mt-1">Select a patient to view or add encrypted medical records.</p>
   </div>
-  <a href="/dashboard" class="text-sm text-blue-600 hover:underline self-start">ÔåÉ Dashboard</a>
+  <a href="/dashboard" class="text-sm text-blue-600 hover:underline self-start"> Dashboard</a>
 </div>
 
 {% if flash %}
@@ -135,7 +135,7 @@
           <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-600 mb-1.5">Content</label>
             <textarea id="freeTextContent" name="content" required rows="3"
-                      placeholder="Diagnosis, prescription details, lab resultsÔÇª"
+                      placeholder="Diagnosis, prescription details, lab results"
                       class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm
                              text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500
                              focus:border-blue-500 resize-none"></textarea>
@@ -163,7 +163,7 @@
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
           <p class="text-xs text-indigo-700">
-            Saved with <strong>SECURITY_PROFILE</strong> (╬▒=0.2, ╬▓=0.8) ÔÇö Kyber-dominant key fusion,
+            Saved with <strong>SECURITY_PROFILE</strong> (=0.2, =0.8) - Kyber-dominant key fusion,
             AES-256-GCM encryption. The pipeline runs live on submit.
           </p>
         </div>
@@ -265,17 +265,17 @@
             </div>
             {% if rec.crypto_log %}
             <span class="text-xs text-gray-400 font-mono">
-              ╬▒={{ rec.crypto_log.alpha }} ╬▓={{ rec.crypto_log.beta }}
-              ┬À {{ rec.crypto_log.execution_time_ms }}ms
+              ={{ rec.crypto_log.alpha }} ={{ rec.crypto_log.beta }}
+               {{ rec.crypto_log.execution_time_ms }}ms
             </span>
             {% endif %}
           </div>
           <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{{ rec.content }}</p>
           {% if rec.crypto_log %}
           <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-400 font-mono">
-            <span>K1ÔÇ▓ = {{ rec.crypto_log.k1_prime_preview }}ÔÇª</span>
-            <span>K2ÔÇ▓ = {{ rec.crypto_log.k2_prime_preview }}ÔÇª</span>
-            <span>Kf = {{ rec.crypto_log.kf_preview }}ÔÇª</span>
+            <span>K1 = {{ rec.crypto_log.k1_prime_preview }}</span>
+            <span>K2 = {{ rec.crypto_log.k2_prime_preview }}</span>
+            <span>Kf = {{ rec.crypto_log.kf_preview }}</span>
           </div>
           {% endif %}
         </div>
@@ -319,7 +319,7 @@
 <div class="mb-6" data-user-id="{{ user.id }}">
   <h1 class="text-2xl font-bold text-gray-900">My Medical Records</h1>
   <p class="text-sm text-gray-500 mt-1">
-    All records are decrypted in real time using your session's hybrid ECCÔÇôKyber key.
+    All records are decrypted in real time using your session's hybrid ECC-Kyber key.
   </p>
 </div>
 
@@ -333,8 +333,8 @@
     <p class="text-sm font-semibold text-indigo-900">End-to-end encrypted</p>
     <p class="text-xs text-indigo-600 mt-0.5 leading-relaxed">
       Each record was saved using the Kyber-dominant
-      <strong>SECURITY_PROFILE</strong> (╬▒=0.2, ╬▓=0.8). The plaintext is never
-      stored ÔÇö only AES-256-GCM ciphertext. Your records are shown decrypted below.
+      <strong>SECURITY_PROFILE</strong> (=0.2, =0.8). The plaintext is never
+      stored - only AES-256-GCM ciphertext. Your records are shown decrypted below.
     </p>
   </div>
 </div>
@@ -356,7 +356,7 @@
       </div>
       {% if rec.crypto_log %}
       <span class="text-xs text-gray-400 font-mono">
-        {{ rec.crypto_log.execution_time_ms }}ms ┬À ╬▒={{ rec.crypto_log.alpha }} ╬▓={{ rec.crypto_log.beta }}
+        {{ rec.crypto_log.execution_time_ms }}ms  ={{ rec.crypto_log.alpha }} ={{ rec.crypto_log.beta }}
       </span>
       {% endif %}
     </div>
@@ -381,8 +381,8 @@
       {% endif %}
       {% if rec.crypto_log %}
       <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-400 font-mono">
-        <span>Kf = {{ rec.crypto_log.kf_preview }}ÔÇª</span>
-        <span>SID = {{ rec.crypto_log.sid[:18] }}ÔÇª</span>
+        <span>Kf = {{ rec.crypto_log.kf_preview }}</span>
+        <span>SID = {{ rec.crypto_log.sid[:18] }}</span>
       </div>
       {% endif %}
     </div>

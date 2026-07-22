@@ -36,7 +36,7 @@ from app.crypto.profiles import OPERATION_TYPE_TO_PROFILE
 
 
 # ---------------------------------------------------------------------------
-# MockKyber — same interface as real Kyber (KeyGen / Encaps / Decaps)
+# MockKyber --same interface as real Kyber (KeyGen / Encaps / Decaps)
 # ---------------------------------------------------------------------------
 
 class MockKyber:
@@ -91,7 +91,7 @@ def establish_session_key(
 
     Returns
     -------
-    dict — see keys below; kfinal (bytes) is the ready-to-use AES-256 key
+    dict --see keys below; kfinal (bytes) is the ready-to-use AES-256 key
     """
     profile = OPERATION_TYPE_TO_PROFILE.get(operation_type)
     if profile is None:
@@ -147,7 +147,7 @@ def establish_session_key(
     execution_time_ms = round((t_end - t_start) * 1000, 3)
 
     result = {
-        # The usable key — never logged or returned to the client
+        # The usable key --never logged or returned to the client
         "kfinal":            Kfinal,
         # Profile metadata
         "alpha":             alpha,
@@ -158,7 +158,7 @@ def establish_session_key(
         # Key fusion accounting
         "bytes_from_k1":     bytes_from_k1,
         "bytes_from_k2":     bytes_from_k2,
-        # Preview values (first 8 hex chars — safe to display)
+        # Preview values (first 8 hex chars --safe to display)
         "k1_prime_preview":  K1_norm.hex()[:8],
         "k2_prime_preview":  K2_norm.hex()[:8],
         "kf_preview":        Kf.hex()[:8],
@@ -256,7 +256,7 @@ def aes_decrypt(kfinal: bytes, ciphertext_hex: str, nonce_hex: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Key wrapping — stores kfinal securely alongside the encrypted record
+# Key wrapping --stores kfinal securely alongside the encrypted record
 # ---------------------------------------------------------------------------
 # Because ECC and Kyber keys are ephemeral, kfinal changes on every call to
 # establish_session_key().  To decrypt a stored record later we need the

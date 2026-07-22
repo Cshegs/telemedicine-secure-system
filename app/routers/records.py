@@ -161,7 +161,7 @@ def _decrypt_record(rec: PatientRecord) -> str:
         kfinal = unwrap_key(rec.wrapped_key)
         return aes_decrypt(kfinal, rec.ciphertext, rec.nonce)
     except Exception:
-        return "[Decryption error — key or ciphertext may be corrupt]"
+        return "[Decryption error --key or ciphertext may be corrupt]"
 
 
 def _load_record_view(rec: PatientRecord) -> dict:
