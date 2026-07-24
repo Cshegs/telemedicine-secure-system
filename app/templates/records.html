@@ -312,9 +312,7 @@
 
 
 {% else %}
-<!-- ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
-     PATIENT VIEW (read-only)
-ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ -->
+<!-- PATIENT VIEW (read-only) -->
 
 <div class="mb-6" data-user-id="{{ user.id }}">
   <h1 class="text-2xl font-bold text-gray-900">My Medical Records</h1>
@@ -524,7 +522,7 @@ updateRecordMode();
 function updateFileName(input) {
   const display = document.getElementById('fileNameDisplay');
   if (input.files && input.files[0]) {
-    display.textContent = '­ƒôä ' + input.files[0].name;
+    display.textContent = ' ' + input.files[0].name;
   } else {
     display.textContent = '';
   }
