@@ -53,6 +53,10 @@ def _doctor_id(user: User, other: User) -> int:
     return user.id if user.role == "doctor" else other.id
 
 
+def _current_mode(request: Request) -> str:
+    return (request.session.get("encryption_mode", "proposed") or "proposed").lower()
+
+
 # ---------------------------------------------------------------------------
 # HTTP — call page
 # ---------------------------------------------------------------------------
@@ -143,7 +147,7 @@ async def create_call_room(
     did = _doctor_id(user, other)
 
     # Run the hybrid pipeline before room creation so the timing is visible.
-    result = establish_session_key("video_call", str(pid), db=db)
+    result = establish_session_key("video_call", str(pid), db=db, mode=_current_mode(request))
 
     room_name = uuid.uuid4().hex[:12]
     room_url = f"https://meet.jit.si/telemed-{room_name}"

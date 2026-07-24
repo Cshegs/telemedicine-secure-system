@@ -79,6 +79,7 @@ class CryptoOperationLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     operation_type = Column(String(50), nullable=False)   # video_call | chat | patient_record
+    encryption_mode = Column(String, default="proposed")
     alpha = Column(Float, nullable=False)
     beta = Column(Float, nullable=False)
     bytes_from_k1 = Column(Integer, nullable=False)

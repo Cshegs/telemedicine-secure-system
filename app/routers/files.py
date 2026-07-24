@@ -14,6 +14,10 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 router = APIRouter()
 
 
+def _current_mode(request: Request) -> str:
+    return (request.session.get("encryption_mode", "proposed") or "proposed").lower()
+
+
 @router.post("/files/upload")
 async def upload_file(
     request: Request,
@@ -35,7 +39,7 @@ async def upload_file(
     file_bytes = await file.read()
     
     # Establish session key for this patient
-    result = establish_session_key("patient_record", str(patient_id), db=db)
+    result = establish_session_key("patient_record", str(patient_id), db=db, mode=_current_mode(request))
     kfinal = result["kfinal"]
     
     # Generate nonce and encrypt file bytes

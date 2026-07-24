@@ -78,6 +78,7 @@ def establish_session_key(
     operation_type: str,
     context_id: str,
     db=None,
+    mode: str = "proposed",
 ) -> dict:
     """
     Runs the full six-step hybrid ECC-Kyber key fusion pipeline.
@@ -99,6 +100,19 @@ def establish_session_key(
             f"Unknown operation_type '{operation_type}'. "
             f"Expected one of: {list(OPERATION_TYPE_TO_PROFILE.keys())}"
         )
+
+    mode = (mode or "proposed").strip().lower()
+    if mode not in {"proposed", "traditional"}:
+        raise ValueError("mode must be 'proposed' or 'traditional'")
+
+    if mode == "traditional":
+        result = traditional_hybrid_keygen(context_id)
+        result["operation_type"] = operation_type
+        result["context_id"] = str(context_id)
+        result["profile_name"] = profile["name"]
+        if db is not None:
+            _write_log(db, result)
+        return result
 
     alpha: float = profile["alpha"]
     beta: float  = profile["beta"]
@@ -155,6 +169,7 @@ def establish_session_key(
         "profile_name":      profile["name"],
         "operation_type":    operation_type,
         "context_id":        PID,
+        "encryption_mode":   "proposed",
         # Key fusion accounting
         "bytes_from_k1":     bytes_from_k1,
         "bytes_from_k2":     bytes_from_k2,
@@ -207,12 +222,86 @@ def establish_session_key(
     return result
 
 
+def traditional_hybrid_keygen(context_id: str) -> dict:
+    """Naive baseline session-key generation without weighting or context binding."""
+    t_start = time.perf_counter()
+
+    doctor_private = X25519PrivateKey.generate()
+    patient_private = X25519PrivateKey.generate()
+    K1 = doctor_private.exchange(patient_private.public_key())
+
+    pk, _sk = _kyber.KeyGen()
+    _ciphertext, K2 = _kyber.Encaps(pk)
+
+    K1_norm = hashlib.sha256(K1).digest()
+    K2_norm = hashlib.sha256(K2).digest()
+
+    Kfinal = hashlib.sha256(K1 + K2).digest()
+    SID = str(uuid.uuid4())
+    T = datetime.now(timezone.utc).isoformat()
+    PID = str(context_id)
+
+    t_end = time.perf_counter()
+    execution_time_ms = round((t_end - t_start) * 1000, 3)
+
+    return {
+        "kfinal": Kfinal,
+        "alpha": 0.5,
+        "beta": 0.5,
+        "profile_name": "TRADITIONAL_BASELINE",
+        "operation_type": "traditional",
+        "context_id": PID,
+        "encryption_mode": "traditional",
+        "bytes_from_k1": 16,
+        "bytes_from_k2": 16,
+        "k1_prime_preview": K1_norm.hex()[:8],
+        "k2_prime_preview": K2_norm.hex()[:8],
+        "kf_preview": Kfinal.hex()[:8],
+        "kfinal_preview": Kfinal.hex()[:8],
+        "sid": SID,
+        "timestamp": T,
+        "execution_time_ms": execution_time_ms,
+        "step_details": {
+            "step1": {
+                "label": "ECC X25519 Exchange → K1",
+                "preview": K1.hex()[:16],
+            },
+            "step2": {
+                "label": "MockKyber Encapsulation → K2",
+                "preview": K2.hex()[:16],
+            },
+            "step3": {
+                "label": "SHA-256 Normalisation → K1′, K2′",
+                "k1_prime": K1_norm.hex()[:16],
+                "k2_prime": K2_norm.hex()[:16],
+            },
+            "step4": {
+                "label": "Naive Fusion → Kfinal",
+                "preview": Kfinal.hex()[:16],
+                "bytes_from_k1": 16,
+                "bytes_from_k2": 16,
+            },
+            "step5": {
+                "label": "No Context Binding",
+                "preview": Kfinal.hex()[:16],
+                "sid": SID,
+                "pid": PID,
+            },
+            "step6": {
+                "label": "AES-256-GCM Ready",
+                "key_preview": Kfinal.hex()[:8],
+            },
+        },
+    }
+
+
 def _write_log(db, result: dict) -> None:
     """Inserts a CryptoOperationLog row. Non-fatal on failure."""
     from app.models import CryptoOperationLog
     try:
         log = CryptoOperationLog(
             operation_type=result["operation_type"],
+            encryption_mode=result.get("encryption_mode", "proposed"),
             alpha=result["alpha"],
             beta=result["beta"],
             bytes_from_k1=result["bytes_from_k1"],

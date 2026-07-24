@@ -86,16 +86,21 @@
                 {{ user.full_name[0] }}
               </span>
             </div>
+
             <div class="text-right leading-tight">
               <p class="text-sm font-medium text-gray-800">{{ user.full_name }}</p>
               <p class="text-xs text-gray-400 capitalize">{{ user.role }}</p>
             </div>
           </div>
-          <a href="/logout"
-             class="ml-2 px-3 py-1.5 rounded-md border border-gray-200 text-sm text-gray-600
-                    hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors">
-            Sign out
-          </a>
+
+          <!-- Encryption mode toggle -->
+          <button id="modeToggleBtn" onclick="toggleEncryptionMode()"
+                  class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                         text-xs font-semibold border transition-colors"
+                  title="Switch encryption mode">
+            <span id="modeLabel">Proposed</span>
+          </button>
+
           <!-- Mobile hamburger -->
           <button id="menu-toggle"
                   class="md:hidden p-2 rounded-md text-gray-500 hover:bg-gray-100"
@@ -149,6 +154,53 @@
     if (toggle && menu) {
       toggle.addEventListener('click', () => menu.classList.toggle('hidden'));
     }
+  </script>
+  <script>
+    // ── Encryption mode toggle ──────────────────────────────────────
+    const modeBtn   = document.getElementById('modeToggleBtn');
+    const modeLabel = document.getElementById('modeLabel');
+
+    function applyModeStyle(mode) {
+      if (!modeBtn) return;
+      if (mode === 'proposed') {
+        modeBtn.className = modeBtn.className.replace(/bg-\S+|text-\S+|border-\S+/g, '');
+        modeBtn.classList.add(
+          'hidden','sm:flex','items-center','gap-1.5','px-3','py-1.5',
+          'rounded-full','text-xs','font-semibold','border','transition-colors',
+          'bg-green-50','text-green-700','border-green-300'
+        );
+        modeLabel.textContent = 'Proposed';
+      } else {
+        modeBtn.className = modeBtn.className.replace(/bg-\S+|text-\S+|border-\S+/g, '');
+        modeBtn.classList.add(
+          'hidden','sm:flex','items-center','gap-1.5','px-3','py-1.5',
+          'rounded-full','text-xs','font-semibold','border','transition-colors',
+          'bg-gray-100','text-gray-600','border-gray-300'
+        );
+        modeLabel.textContent = 'Traditional';
+      }
+    }
+
+    async function toggleEncryptionMode() {
+      const current = modeLabel.textContent.toLowerCase();
+      const next    = current === 'proposed' ? 'traditional' : 'proposed';
+      try {
+        await fetch('/settings/encryption-mode', {
+          method:  'POST',
+          headers: {'Content-Type': 'application/json'},
+          body:    JSON.stringify({mode: next}),
+        });
+        applyModeStyle(next);
+      } catch(e) {
+        console.error('Mode toggle failed', e);
+      }
+    }
+
+    // Set initial style on page load — read from server
+    fetch('/settings/encryption-mode')
+      .then(r => r.json())
+      .then(data => applyModeStyle(data.mode || 'proposed'))
+      .catch(() => applyModeStyle('proposed'));
   </script>
   {% block scripts %}{% endblock %}
 </body>

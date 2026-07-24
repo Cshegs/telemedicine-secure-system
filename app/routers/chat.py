@@ -73,6 +73,10 @@ def _other_user(db: Session, current_user: User, other_id: int) -> User | None:
     return None
 
 
+def _current_mode(request: Request) -> str:
+    return (request.session.get("encryption_mode", "proposed") or "proposed").lower()
+
+
 async def _broadcast_chat_payload(room: str, payload: dict) -> None:
     """Broadcast a JSON payload to all live sockets in the room."""
     if room not in _rooms:
@@ -104,11 +108,11 @@ def _chat_crypto_response(result: dict, ciphertext_hex: str) -> dict:
     }
 
 
-async def _save_chat_message(db: Session, user: User, other: User, text: str) -> dict:
+async def _save_chat_message(request: Request, db: Session, user: User, other: User, text: str) -> dict:
     """Encrypt, persist, and broadcast a chat message, then return crypto metadata."""
     patient_id = _patient_id_for_pair(user, other)
 
-    result = establish_session_key("chat", str(patient_id), db=db)
+    result = establish_session_key("chat", str(patient_id), db=db, mode=_current_mode(request))
     kfinal = result["kfinal"]
 
     ct_hex, nonce_hex = aes_encrypt(kfinal, text)
@@ -216,7 +220,7 @@ async def send_chat_message(request: Request, db: Session = Depends(get_db)):
     if not other:
         raise HTTPException(status_code=403, detail="Invalid chat recipient")
 
-    return await _save_chat_message(db, user, other, text)
+    return await _save_chat_message(request, db, user, other, text)
 
 
 # ---------------------------------------------------------------------------

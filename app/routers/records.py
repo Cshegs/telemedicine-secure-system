@@ -176,6 +176,10 @@ def _load_record_view(rec: PatientRecord) -> dict:
     }
 
 
+def _current_mode(request: Request) -> str:
+    return (request.session.get("encryption_mode", "proposed") or "proposed").lower()
+
+
 # ---------------------------------------------------------------------------
 # Doctor: list/add records for a specific patient
 # Patient: view own records (read-only)
@@ -261,7 +265,12 @@ async def create_record(
         return RedirectResponse("/records", status_code=302)
 
     # Run the six-step pipeline with SECURITY_PROFILE (patient_record)
-    result = establish_session_key("patient_record", str(patient_id), db=db)
+    result = establish_session_key(
+        "patient_record",
+        str(patient_id),
+        db=db,
+        mode=_current_mode(request),
+    )
     kfinal = result["kfinal"]
 
     # Encrypt the record content
