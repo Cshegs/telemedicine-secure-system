@@ -105,12 +105,25 @@ The **Crypto Lab** (`/crypto-lab`) is the core examiner-facing feature. It shows
 
 ## Deployment (Render.com free tier)
 
+**For a brand-new deploy:**
+
 1. Push this repository to GitHub.
 2. Go to [render.com](https://render.com) → **New Web Service** → connect the repo.
-3. Render auto-detects `render.yaml` and configures the service as a **Docker**
-   service (see `Dockerfile`).
+3. Set the **Language** field to **Docker** during creation (Render builds from
+   `Dockerfile` at the repo root; see below for why this matters).
 4. A unique `SESSION_SECRET` is generated automatically.
 5. Deploy.
+
+**If you already have this service running on Render's native Python runtime**
+(the one that fails with `cmake: not found`): editing `render.yaml` and pushing
+does **not** fix an already-existing service. Render only reads `render.yaml`
+when a service is first created from a Blueprint, or via an explicit Blueprint
+sync/API call afterward -- an ordinary git-push auto-deploy of an existing
+Web Service ignores it. The verified path is to create a **new** Web Service
+as above (Language: Docker, same repo/branch), confirm it comes up healthy,
+then either delete the old broken service or keep it as a spare. See
+`CHANGES.md` section 11 for the full incident writeup, including why the
+first attempt at this fix looked right in the repo but did nothing on Render.
 
 **Why Docker, not Render's native Python runtime:** ML-KEM (via `liboqs-python`)
 builds the real `liboqs` C library itself the first time the app imports `oqs` --

@@ -1,6 +1,11 @@
 services:
   - type: web
-    name: telemed-hybrid-crypto
+    # This must match the real service name shown in the Render dashboard
+    # (was "telemed-hybrid-crypto", which never matched the actual service
+    # "telemedicine-secure-system" -- a pre-existing mismatch, not
+    # something this fix introduced). A render.yaml whose service name
+    # doesn't match an existing service can't be synced onto it.
+    name: telemedicine-secure-system
     # Was runtime: python. That runtime's build image has no cmake, so
     # liboqs-python's automatic liboqs build (which only happens the first
     # time app code does `import oqs`, i.e. at container startup, not at

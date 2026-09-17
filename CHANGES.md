@@ -388,6 +388,43 @@ weight pair). A full grep of the whole project for `alpha|beta|α|β`
 was run afterward to confirm no other file has a similar stale claim left
 standing; README.md was the only one.
 
+## 11. Section 9's caveat was right, but the actual failure was different: Render never ran the Dockerfile at all
+
+Section 9 flagged that the Docker fix hadn't been confirmed against a real
+Render deploy. It has been confirmed now, and the outcome was not a Docker
+build failure -- it was that Render never attempted a Docker build in the
+first place. The next deploy log after pushing the Dockerfile and the
+`runtime: docker` render.yaml change showed the service still badged
+"Python 3" in the dashboard, still running from
+`/opt/render/project/src/.venv/...`, still hitting the exact same
+`cmake: not found` failure as before. The Dockerfile was never read.
+
+Checked against Render's own docs and changelog rather than guessed: an
+already-existing Web Service (created via "New Web Service" + connect repo,
+not via a Blueprint) does not re-read `render.yaml` on an ordinary git-push
+auto-deploy. `render.yaml` is only applied when a service is first created
+from a Blueprint, or when a Blueprint is explicitly synced afterward.
+Changing a service's `runtime` after creation is documented as possible
+only through the Render API or a Blueprint sync, not through the
+dashboard. That explains why editing `render.yaml` and pushing did nothing
+to this service's actual configuration.
+
+Separately, and found while investigating: `render.yaml`'s `name` field
+was `telemed-hybrid-crypto`, which never matched the real service name,
+`telemedicine-secure-system`. That mismatch predates this fix -- it was
+already wrong in the original file -- but it would have blocked a
+Blueprint sync from ever matching this service even if one were attempted,
+since Render matches an existing service by name. Fixed: `render.yaml`'s
+name now matches the real service.
+
+The verified, documented way forward (not the in-place API/Blueprint route,
+which this project could not test end-to-end from here): create a new
+Render Web Service pointed at the same GitHub repo/branch, and choose
+Docker as the Language during creation -- Render's docs describe this path
+explicitly for new services. The existing broken service can stay in place
+until the new one is confirmed healthy, then either be kept as a spare or
+deleted.
+
 ## Not yet done (separate from this fix)
 
 - Entity authentication / threat model (reviewer comment 2) -- not
