@@ -425,6 +425,20 @@ explicitly for new services. The existing broken service can stay in place
 until the new one is confirmed healthy, then either be kept as a spare or
 deleted.
 
+**Confirmed, end to end:** a new Web Service (`telemedicine-secure-system-docker`,
+Language: Docker, same repo/branch) deployed clean on the first real attempt
+from commit `64bc78e`. No `cmake: not found`, no lazy liboqs build at
+startup at all -- the log went straight from "Setting WEB_CONCURRENCY=1" to
+liboqs loading and uvicorn starting, which means liboqs was already built
+into the image at Docker-build time exactly as the `Dockerfile` intends.
+One unrelated failure showed up first (`psycopg2.OperationalError` /
+"tenant/user ... not found" connecting to the Supabase Postgres pooler) --
+that was the Supabase project having auto-paused from inactivity on its
+free tier, not anything this fix touched. Restoring the Supabase project
+and retrying the same deploy succeeded: `Deploy succeeded | Live`, service
+reachable at `https://telemedicine-secure-system-docker.onrender.com`.
+The original cmake/Docker problem this section exists to fix is closed.
+
 ## Not yet done (separate from this fix)
 
 - Entity authentication / threat model (reviewer comment 2) -- not
