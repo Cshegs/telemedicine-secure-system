@@ -58,7 +58,7 @@ def _current_mode(request: Request) -> str:
 
 
 # ---------------------------------------------------------------------------
-# HTTP — call page
+# HTTP -- call page
 # ---------------------------------------------------------------------------
 
 @router.get("/call")
@@ -119,7 +119,7 @@ async def call_page(
 
 
 # ---------------------------------------------------------------------------
-# API — establish session key before Jitsi room creation
+# API -- establish session key before Jitsi room creation
 # ---------------------------------------------------------------------------
 
 @router.post("/call/create-room")
@@ -203,7 +203,7 @@ async def end_call_session(
 
 
 # ---------------------------------------------------------------------------
-# WebSocket — signaling relay
+# WebSocket -- signaling relay
 # ---------------------------------------------------------------------------
 
 @router.websocket("/ws/call/{other_id}")

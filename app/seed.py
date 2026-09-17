@@ -1,7 +1,7 @@
 """
 Creates the demo accounts on every startup if they don't already exist.
 Render's free tier has an ephemeral filesystem, so this re-seeds after
-every cold start — the demo is always ready without manual setup.
+every cold start -- the demo is always ready without manual setup.
 """
 from app.database import SessionLocal
 from app.models import User

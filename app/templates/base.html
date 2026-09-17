@@ -203,7 +203,7 @@
       }
     }
 
-    // Set initial style on page load — read from server
+    // Set initial style on page load -- read from server
     fetch('/settings/encryption-mode')
       .then(r => r.json())
       .then(data => applyModeStyle(data.mode || 'proposed'))

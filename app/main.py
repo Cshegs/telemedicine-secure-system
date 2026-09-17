@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.database import engine, Base
-import app.models  # noqa: F401 — registers all models with Base before create_all
+import app.models  # noqa: F401 -- registers all models with Base before create_all
 from app.seed import run_seed
 from app.routers import auth_routes, crypto_lab, records, chat, call, design, files, settings
 

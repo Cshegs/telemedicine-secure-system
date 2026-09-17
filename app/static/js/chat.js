@@ -1,10 +1,10 @@
 /**
- * chat.js — WebSocket client for the TeleMedSecure encrypted chat.
+ * chat.js -- WebSocket client for the TeleMedSecure encrypted chat.
  *
  * Connects to /ws/chat/{other_id}.  The server runs the six-step
  * ECC-Kyber pipeline on every inbound message, encrypts and stores it,
  * then broadcasts the plaintext + crypto metadata back to all sockets
- * in the room.  The client only ever sees plaintext — encryption is
+ * in the room.  The client only ever sees plaintext -- encryption is
  * entirely server-side.
  */
 
@@ -51,7 +51,7 @@
     const timeMs = Number(data.execution_time_ms || 0).toFixed(3);
 
     notifyText.textContent =
-      `🔐 Message Encrypted — ${profileName}\n` +
+      `🔐 Message Encrypted -- ${profileName}\n` +
       `┌─────────────────────────────────────────┐\n` +
       `│ ${kemAlg}  |  Time: ${timeMs}ms         │\n` +
       `│ SID: ${sid}                  │\n` +
@@ -99,7 +99,7 @@
     };
 
     ws.onclose = () => {
-      statusEl.textContent = `Disconnected — reconnecting in ${reconnectDelay / 1000}s…`;
+      statusEl.textContent = `Disconnected -- reconnecting in ${reconnectDelay / 1000}s…`;
       statusEl.classList.remove('text-green-600', 'text-amber-500');
       statusEl.classList.add('text-red-400');
       setTimeout(connect, reconnectDelay);

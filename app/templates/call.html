@@ -70,7 +70,7 @@
             {% endif %}
           </div>
           <p class="text-xs text-gray-400 mt-0.5">
-            {{ call.started_at.strftime('%d %b %Y, %H:%M') if call.started_at else '—' }}
+            {{ call.started_at.strftime('%d %b %Y, %H:%M') if call.started_at else '--' }}
             {% if call.ended_at %}
               · {{ ((call.ended_at - call.started_at).seconds // 60) }}m
                 {{ ((call.ended_at - call.started_at).seconds % 60) }}s

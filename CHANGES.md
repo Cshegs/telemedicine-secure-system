@@ -359,6 +359,35 @@ build` / Render deploy of this Dockerfile has not been observed to
 succeed end-to-end; treat this as strongly-supported, not yet
 first-hand-confirmed on Render, until the next real deploy log is checked.
 
+## 10. Style: no em dashes, anywhere -- and a stale README section caught in the sweep
+
+Per instruction, this project (code comments, docstrings, UI-facing template
+text, and documentation) does not use the em dash character ("--" as a
+Unicode character, U+2014). Every real occurrence (63, across 13 files --
+README.md, app/models.py, app/auth.py, app/main.py, app/seed.py,
+app/routers/call.py, app/routers/chat.py, app/static/js/chat.js, and the
+templates call.html, base.html, dashboard.html, crypto_lab.html,
+crypto_test.html) was replaced with a plain double hyphen (`--`), which the
+codebase already used in most other comments and docstrings, so this makes
+the whole project consistent with itself rather than introducing a second
+style. This applies going forward too: no em dashes in new code, comments,
+or documentation for this project.
+
+While doing that sweep, README.md's opening section ("What this system
+demonstrates") turned out to still describe the *original, already-abandoned*
+design: a weighted-fusion formula `Kf = SHA256(alpha*K1' || beta*K2')` and a
+table of alpha/beta values (0.7/0.3, 0.4/0.6, 0.2/0.8) per profile. That
+formula was replaced back in section 2 of this file, and those specific
+alpha/beta values were replaced in section 8 -- but this one README section
+was missed by both passes and kept asserting the old, truncating,
+already-reviewer-flagged design as if it were current. Fixed: the formula
+and table now match the real v3 implementation (Step 4 always fuses the
+full 32 bytes of both K1' and K2'; the table now shows which real ML-KEM
+parameter set -- 512/768/1024 -- each profile selects at Step 2, not a
+weight pair). A full grep of the whole project for `alpha|beta|α|β`
+was run afterward to confirm no other file has a similar stale claim left
+standing; README.md was the only one.
+
 ## Not yet done (separate from this fix)
 
 - Entity authentication / threat model (reviewer comment 2) -- not

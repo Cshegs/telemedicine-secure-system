@@ -41,7 +41,7 @@
           Every time a doctor sends a chat, saves a patient record, or starts a video call,
           the system runs the full six-step ECC–Kyber hybrid key fusion pipeline and logs
           the result here. Different functions select a different ML-KEM parameter set at
-          Step 2 — a video call uses ML-KEM-512 for speed, a patient record uses ML-KEM-1024
+          Step 2 -- a video call uses ML-KEM-512 for speed, a patient record uses ML-KEM-1024
           for maximum security margin, and chat uses ML-KEM-768, the general-purpose default.
           Step 4's fusion always uses the full secret from both legs regardless of profile,
           so this choice never weakens the combined key below either leg's own strength.
@@ -95,7 +95,7 @@
 
   <!-- ── Comparison result banner (hidden until button clicked) ──── -->
   <div id="compareBanner" class="hidden mb-6 lab-card p-5">
-    <p class="lab-label mb-3">Live Comparison Results — Three Profiles Back-to-Back</p>
+    <p class="lab-label mb-3">Live Comparison Results -- Three Profiles Back-to-Back</p>
     <div id="compareResults" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div>
   </div>
 
@@ -103,7 +103,7 @@
   <div class="mb-4 rounded-lg border border-green-800 bg-green-950/30 px-4 py-3 flex items-start gap-3">
     <span class="text-green-400 flex-shrink-0">&#10003;</span>
     <p class="text-xs text-green-300 leading-relaxed">
-      <span class="font-semibold">Running with real ML-KEM (512 / 768 / 1024, profile-selected)</span> —
+      <span class="font-semibold">Running with real ML-KEM (512 / 768 / 1024, profile-selected)</span> --
       the Kyber KEM step uses liboqs's NIST FIPS 203 implementation (Open Quantum Safe), not a
       placeholder, at whichever parameter set the operation's profile selects. The fusion
       step always combines the full 32-byte secret from both the ECC and Kyber legs (see
@@ -121,21 +121,21 @@
     <div class="lab-card px-5 py-4">
       <p class="lab-label mb-1">Avg · Speed</p>
       <p class="text-2xl font-bold profile-speed mono" id="statSpeed">
-        {{ avg_map.get('video_call', '—') }}{% if avg_map.get('video_call') %}ms{% endif %}
+        {{ avg_map.get('video_call', '--') }}{% if avg_map.get('video_call') %}ms{% endif %}
       </p>
       <p class="text-xs text-slate-500 mt-0.5">ML-KEM-512</p>
     </div>
     <div class="lab-card px-5 py-4">
       <p class="lab-label mb-1">Avg · Balanced</p>
       <p class="text-2xl font-bold profile-balanced mono" id="statBalanced">
-        {{ avg_map.get('chat', '—') }}{% if avg_map.get('chat') %}ms{% endif %}
+        {{ avg_map.get('chat', '--') }}{% if avg_map.get('chat') %}ms{% endif %}
       </p>
       <p class="text-xs text-slate-500 mt-0.5">ML-KEM-768</p>
     </div>
     <div class="lab-card px-5 py-4">
       <p class="lab-label mb-1">Avg · Security</p>
       <p class="text-2xl font-bold profile-security mono" id="statSecurity">
-        {{ avg_map.get('patient_record', '—') }}{% if avg_map.get('patient_record') %}ms{% endif %}
+        {{ avg_map.get('patient_record', '--') }}{% if avg_map.get('patient_record') %}ms{% endif %}
       </p>
       <p class="text-xs text-slate-500 mt-0.5">ML-KEM-1024</p>
     </div>
@@ -149,7 +149,7 @@
       <div class="flex items-center justify-between mb-4">
         <div>
           <p class="text-sm font-semibold text-white">Average Execution Time by Profile</p>
-          <p class="text-xs text-slate-500 mt-0.5">Live version of Table I — built from actual system usage</p>
+          <p class="text-xs text-slate-500 mt-0.5">Live version of Table I -- built from actual system usage</p>
         </div>
         <button onclick="refreshData()"
                 class="text-xs text-slate-400 hover:text-white border border-slate-700
@@ -161,7 +161,7 @@
         <canvas id="profileChart"></canvas>
       </div>
       <p class="text-xs text-slate-600 mt-3 text-center">
-        SPEED (ML-KEM-512) · BALANCED (ML-KEM-768) · SECURITY (ML-KEM-1024) — the fusion step
+        SPEED (ML-KEM-512) · BALANCED (ML-KEM-768) · SECURITY (ML-KEM-1024) -- the fusion step
         always uses 100% of both keys, so the difference between profiles is which ML-KEM
         parameter set gets generated, not how much of it survives fusion
       </p>
@@ -334,7 +334,7 @@
         <p class="text-xs font-bold text-white mb-1">① Ciphertext Indistinguishability</p>
         <p class="text-xs text-slate-400 mb-3 leading-relaxed">
           The same plaintext encrypted in two separate sessions produces completely different
-          ciphertexts — proving session-context binding is working.
+          ciphertexts -- proving session-context binding is working.
         </p>
         <button onclick="runIndistinguishabilityTest()" id="indiBtn"
                 class="text-xs px-3 py-2 bg-indigo-700 hover:bg-indigo-600 text-white rounded-md transition-colors font-medium mb-3">
@@ -363,13 +363,13 @@
       <div class="px-5 py-5">
         <p class="text-xs font-bold text-white mb-1">② Replay Attack Resistance</p>
         <p class="text-xs text-slate-400 mb-3 leading-relaxed">
-          Two operations for the same patient using the same profile still produce different Kfinal values — because SID and timestamp always differ.
+          Two operations for the same patient using the same profile still produce different Kfinal values -- because SID and timestamp always differ.
         </p>
         <div class="rounded bg-slate-800 px-3 py-2 text-xs mono space-y-1">
           <p class="text-slate-400">What makes each key unique:</p>
-          <p class="text-blue-400">SID  = uuid4() — random every session</p>
-          <p class="text-purple-400">T    = datetime.now() — exact time</p>
-          <p class="text-green-400">PID  = patient ID — same across sessions</p>
+          <p class="text-blue-400">SID  = uuid4() -- random every session</p>
+          <p class="text-purple-400">T    = datetime.now() -- exact time</p>
+          <p class="text-green-400">PID  = patient ID -- same across sessions</p>
           <p class="text-orange-400">Kfinal = HKDF(Kf ‖ SID ‖ T ‖ PID)</p>
           <p class="text-red-400 mt-1">∴ even if Kf repeats, Kfinal never repeats</p>
         </div>
@@ -459,7 +459,7 @@
               {{ log.execution_time_ms }}
             </td>
             <td class="px-4 py-3 text-right text-slate-500 mono hidden lg:table-cell">
-              {{ log.created_at.strftime('%H:%M:%S') if log.created_at else '—' }}
+              {{ log.created_at.strftime('%H:%M:%S') if log.created_at else '--' }}
             </td>
           </tr>
           {% endfor %}
@@ -584,7 +584,7 @@
 
       <div class="lab-card p-4">
         <p class="text-sm font-semibold text-white mb-2">Real Usage Comparison</p>
-        <p class="text-xs text-slate-500 mb-4">Live data from actual system operations — not a simulation</p>
+        <p class="text-xs text-slate-500 mb-4">Live data from actual system operations -- not a simulation</p>
         <div class="relative" style="height: 260px;">
           <canvas id="modeComparisonChart"></canvas>
         </div>
@@ -680,9 +680,9 @@ async function refreshData() {
     const op = ['video_call','chat','patient_record'][i];
     avgs[op] = data.chart_data[i];
   });
-  document.getElementById('statSpeed').textContent    = (avgs.video_call    || '—') + (avgs.video_call    ? 'ms' : '');
-  document.getElementById('statBalanced').textContent = (avgs.chat          || '—') + (avgs.chat          ? 'ms' : '');
-  document.getElementById('statSecurity').textContent = (avgs.patient_record|| '—') + (avgs.patient_record? 'ms' : '');
+  document.getElementById('statSpeed').textContent    = (avgs.video_call    || '--') + (avgs.video_call    ? 'ms' : '');
+  document.getElementById('statBalanced').textContent = (avgs.chat          || '--') + (avgs.chat          ? 'ms' : '');
+  document.getElementById('statSecurity').textContent = (avgs.patient_record|| '--') + (avgs.patient_record? 'ms' : '');
 
   // Update chart
   initChart(data);
@@ -715,7 +715,7 @@ function updateLogTable(logs) {
     const timeColor = log.execution_time_ms < 5
       ? 'text-green-400' : log.execution_time_ms < 20
       ? 'text-yellow-400' : 'text-red-400';
-    const ts = log.created_at ? log.created_at.slice(11, 19) : '—';
+    const ts = log.created_at ? log.created_at.slice(11, 19) : '--';
     return `
       <tr class="hover:bg-slate-800/40 transition-colors border-b border-slate-800">
         <td class="px-4 py-3">
@@ -724,7 +724,7 @@ function updateLogTable(logs) {
           </span>
         </td>
         <td class="px-4 py-3 mono ${profileColor[log.operation_type] || 'text-slate-300'}">
-          ${profileLabel[log.operation_type] || '—'}
+          ${profileLabel[log.operation_type] || '--'}
         </td>
         <td class="px-4 py-3 text-slate-300 mono">${log.kem_alg}</td>
         <td class="px-4 py-3 text-yellow-500 mono hidden sm:table-cell">${log.k1_prime_preview}…</td>
@@ -870,7 +870,7 @@ function securityStrengthBar(kemAlg, color) {
       <div class="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden min-w-[60px]">
         <div class="h-full" style="width:${pct}%; background:${color};"></div>
       </div>
-      <span class="text-slate-400 mono flex-shrink-0">${kemAlg ?? '—'}</span>
+      <span class="text-slate-400 mono flex-shrink-0">${kemAlg ?? '--'}</span>
     </div>`;
 }
 
@@ -1146,7 +1146,7 @@ function renderBenchmarkSummary(data) {
         <td class="px-3 py-3 text-right mono text-slate-400">${stats.max_ms}</td>
         <td class="px-3 py-3 text-right mono text-slate-400">${stats.std_dev_ms}</td>
         <td class="px-3 py-3 text-right mono ${relative <= 0 ? 'text-emerald-400' : 'text-red-400'}">
-          ${label === 'Traditional' ? '—' : formatSignedPercent(relative)}
+          ${label === 'Traditional' ? '--' : formatSignedPercent(relative)}
         </td>
       </tr>
     `;

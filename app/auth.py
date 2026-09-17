@@ -4,7 +4,7 @@ import os
 from fastapi import Request
 from sqlalchemy.orm import Session
 
-# PBKDF2-SHA256 via stdlib — no passlib/bcrypt compatibility issues on Python 3.14.
+# PBKDF2-SHA256 via stdlib -- no passlib/bcrypt compatibility issues on Python 3.14.
 # Format: "pbkdf2$<hex-salt>$<hex-hash>"
 _ITERATIONS = 260_000
 _HASH_ALG = "sha256"

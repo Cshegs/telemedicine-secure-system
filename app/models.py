@@ -45,7 +45,7 @@ class ChatMessage(Base):
     receiver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     ciphertext = Column(Text, nullable=False)
     nonce = Column(String(50), nullable=False)
-    # kfinal wrapped so history can be decrypted on reload — same scheme as PatientRecord
+    # kfinal wrapped so history can be decrypted on reload -- same scheme as PatientRecord
     wrapped_key = Column(Text, nullable=False)
     crypto_log_id = Column(Integer, ForeignKey("crypto_operation_logs.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

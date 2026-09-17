@@ -36,9 +36,9 @@
           <label class="block text-xs text-gray-400 mb-1 uppercase tracking-wider">Operation Type</label>
           <select id="opType"
                   class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="chat">chat — Balanced (ML-KEM-768)</option>
-            <option value="patient_record">patient_record — Security (ML-KEM-1024)</option>
-            <option value="video_call">video_call — Speed (ML-KEM-512)</option>
+            <option value="chat">chat -- Balanced (ML-KEM-768)</option>
+            <option value="patient_record">patient_record -- Security (ML-KEM-1024)</option>
+            <option value="video_call">video_call -- Speed (ML-KEM-512)</option>
           </select>
         </div>
 
@@ -174,7 +174,7 @@
 
         badge.textContent = `✓ ${data.execution_time_ms} ms · ${data.kem_alg} · ${data.profile_name}`;
 
-        // Sanitise kfinal before display (it's a full 32-byte key — show only preview)
+        // Sanitise kfinal before display (it's a full 32-byte key -- show only preview)
         const display = {...data};
         display.kfinal = data.kfinal_preview + '… (full key not returned to client)';
         rawJson.textContent = JSON.stringify(display, null, 2);

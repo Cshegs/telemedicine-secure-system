@@ -1,4 +1,4 @@
-# TeleMedSecure — Hybrid ECC–Kyber Telemedicine Platform
+# TeleMedSecure -- Hybrid ECC–Kyber Telemedicine Platform
 
 **Final-year Computer Science project · Anchor University Lagos**
 
@@ -10,36 +10,40 @@ with Secure Key Fusion for Telemedicine Information Security."*
 ## What this system demonstrates
 
 The paper's central contribution is a **six-step hybrid key fusion pipeline** that
-blends classical ECC (X25519) with post-quantum Kyber via controllable α/β weights:
+combines classical ECC (X25519) with post-quantum ML-KEM (CRYSTALS-Kyber), where
+each operation type selects a different real ML-KEM parameter set:
 
 ```
-Step 1: ECC X25519 key exchange          → K1
-Step 2: CRYSTALS-Kyber key encapsulation → K2
-Step 3: SHA-256 normalisation            → K1', K2'
-Step 4: Weighted fusion                  → Kf = SHA256(α·K1' ‖ β·K2')
-Step 5: HKDF context derivation          → Kfinal = HKDF(Kf ‖ SID ‖ T ‖ PID)
-Step 6: AES-256-GCM encryption           → C
+Step 1: ECC X25519 key exchange          -> K1
+Step 2: ML-KEM key encapsulation         -> K2   (512 / 768 / 1024, profile-selected)
+Step 3: SHA-256 normalisation            -> K1', K2'
+Step 4: Full-entropy fusion              -> Kf = SHA256(K1' || K2')
+Step 5: HKDF context derivation          -> Kfinal = HKDF(Kf || SID || T || PID)
+Step 6: AES-256-GCM encryption           -> C
 ```
 
-Different telemedicine functions use different weighting profiles:
+Step 4 always combines the full 32 bytes of both K1' and K2' for every profile
+(no truncation, no weighting -- see `CHANGES.md` for why an earlier weighted-byte
+design was replaced). What actually varies per operation type is which ML-KEM
+parameter set gets generated at Step 2:
 
-| Feature | Profile | α (ECC) | β (Kyber) | Rationale |
-|---|---|---|---|---|
-| Video call session | SPEED_PROFILE | 0.7 | 0.3 | Live calls cannot tolerate slow key setup |
-| Secure chat | BALANCED_PROFILE | 0.4 | 0.6 | Paper's recommended optimal operating point |
-| Patient records | SECURITY_PROFILE | 0.2 | 0.8 | Long-lived data must resist future quantum attacks |
+| Feature | Profile | ML-KEM parameter set | Rationale |
+|---|---|---|---|
+| Video call session | SPEED_PROFILE | ML-KEM-512 | Live calls cannot tolerate slow key setup |
+| Secure chat | BALANCED_PROFILE | ML-KEM-768 | Also the fixed baseline algorithm; fairest comparison point |
+| Patient records | SECURITY_PROFILE | ML-KEM-1024 | Long-lived data must resist future quantum attacks |
 
 **Every real user action (sending a message, saving a record, starting a call) runs
-the pipeline live and logs the result** — making the paper's Table I a continuously
+the pipeline live and logs the result** -- making the paper's Table I a continuously
 demonstrable feature of the running system.
 
 ---
 
 ## Honest scope: what is and isn't encrypted by the hybrid framework
 
-- **Patient records** — encrypted end-to-end with `Kfinal` via AES-256-GCM. ✓
-- **Chat messages** — each message encrypted with a fresh `Kfinal`. ✓
-- **Video/audio streams** — encrypted natively by WebRTC (DTLS-SRTP), which is
+- **Patient records** -- encrypted end-to-end with `Kfinal` via AES-256-GCM. ✓
+- **Chat messages** -- each message encrypted with a fresh `Kfinal`. ✓
+- **Video/audio streams** -- encrypted natively by WebRTC (DTLS-SRTP), which is
   industry-standard and runs automatically in the browser. The hybrid framework
   secures the **call session record** (who called whom, when) generated with
   SPEED_PROFILE before the WebRTC handshake begins. This demonstrates the
@@ -54,7 +58,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-Open **http://localhost:8000** — demo credentials are shown on the login page.
+Open **http://localhost:8000** -- demo credentials are shown on the login page.
 
 ### Demo accounts (password for all: `demo1234`)
 
@@ -75,10 +79,10 @@ Open **http://localhost:8000** — demo credentials are shown on the login page.
 |---|---|
 | `/dashboard` | Role-based dashboard (doctor: patient list + stats; patient: records + doctor card) |
 | `/records` | Doctor creates encrypted patient records; patient views own records |
-| `/chat` | Real-time WebSocket chat — each message encrypted with BALANCED_PROFILE |
-| `/call` | WebRTC video call — SPEED_PROFILE pipeline runs before WebRTC handshake |
-| `/crypto-lab` | **Crypto Transparency Dashboard** — live log, Chart.js comparison chart, pipeline step visualiser, "Run Live Comparison" button |
-| `/crypto-test` | Quick manual pipeline test — fire any profile and inspect raw JSON output |
+| `/chat` | Real-time WebSocket chat -- each message encrypted with BALANCED_PROFILE |
+| `/call` | WebRTC video call -- SPEED_PROFILE pipeline runs before WebRTC handshake |
+| `/crypto-lab` | **Crypto Transparency Dashboard** -- live log, Chart.js comparison chart, pipeline step visualiser, "Run Live Comparison" button |
+| `/crypto-test` | Quick manual pipeline test -- fire any profile and inspect raw JSON output |
 
 ---
 
@@ -86,15 +90,15 @@ Open **http://localhost:8000** — demo credentials are shown on the login page.
 
 The **Crypto Lab** (`/crypto-lab`) is the core examiner-facing feature. It shows:
 
-1. **Live operation log** — every call to `establish_session_key()` (triggered by real
+1. **Live operation log** -- every call to `establish_session_key()` (triggered by real
    user actions) appears here with operation type, the ML-KEM parameter set that
    profile selected (512/768/1024), K1′/K2′/Kf previews, and execution time.
-2. **Comparison chart** — Chart.js bar chart of average execution time per profile,
-   built from actual logged history — the live version of Table I from the paper.
-3. **"Run Live Comparison" button** — fires all three profiles back-to-back and shows
+2. **Comparison chart** -- Chart.js bar chart of average execution time per profile,
+   built from actual logged history -- the live version of Table I from the paper.
+3. **"Run Live Comparison" button** -- fires all three profiles back-to-back and shows
    timing side-by-side in real time. Click this during a defence to demonstrate the
    speed/security trade-off on demand.
-4. **Pipeline step visualiser** — shows Steps 1–6 for the most recent operation with
+4. **Pipeline step visualiser** -- shows Steps 1–6 for the most recent operation with
    hex previews at each step (K1′, K2′, Kf, SID).
 
 ---
@@ -123,11 +127,11 @@ The first request after a sleep cycle takes ~30–50 seconds to respond (cold st
 **Visit the deployed URL a few minutes before any live demo or defence** to ensure
 the service is awake.
 
-**Database note:** Render's free tier uses an ephemeral filesystem — the SQLite
+**Database note:** Render's free tier uses an ephemeral filesystem -- the SQLite
 database is recreated on every deploy or restart. `seed.py` runs on startup and
 re-creates all demo accounts automatically, so the demo is always ready.
 
-### Adding a TURN server (optional — for restrictive networks)
+### Adding a TURN server (optional -- for restrictive networks)
 
 WebRTC calls use Google's public STUN server (`stun:stun.l.google.com:19302`) which
 works on most networks. If calls fail behind a strict corporate firewall or symmetric
@@ -163,7 +167,7 @@ the literature check behind it, and the real re-benchmark numbers.
 
 **First run note:** `liboqs-python` builds the underlying `liboqs` C library
 from source the first time it's imported (needs `cmake`, `git`, and a C
-compiler — see that library's own install docs if this fails). That build can
+compiler -- see that library's own install docs if this fails). That build can
 take several minutes and will make the first request to any page that touches
 crypto (login, `/crypto-lab`, `/call`, `/records`, `/chat`) feel slow or
 briefly unresponsive; it only happens once per environment.

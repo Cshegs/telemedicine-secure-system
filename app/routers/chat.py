@@ -1,5 +1,5 @@
 """
-Phase 4 — Real-time encrypted chat.
+Phase 4 -- Real-time encrypted chat.
 
 Each message:
   1. Arrives via WebSocket (plaintext from the sender's browser)
@@ -13,7 +13,7 @@ History load (GET /chat):
 
 WebSocket auth:
   - Starlette's SessionMiddleware populates scope["session"] for WebSocket connections
-    the same way it does for HTTP — we read user_id from there.
+    the same way it does for HTTP -- we read user_id from there.
 """
 
 import json
@@ -143,7 +143,7 @@ async def _save_chat_message(request: Request, db: Session, user: User, other: U
 
 
 # ---------------------------------------------------------------------------
-# HTTP — chat page with history
+# HTTP -- chat page with history
 # ---------------------------------------------------------------------------
 
 @router.get("/chat")
@@ -198,7 +198,7 @@ async def chat_page(
 
 
 # ---------------------------------------------------------------------------
-# HTTP — save chat message from the client
+# HTTP -- save chat message from the client
 # ---------------------------------------------------------------------------
 
 @router.post("/chat/messages")
@@ -222,7 +222,7 @@ async def send_chat_message(request: Request, db: Session = Depends(get_db)):
 
 
 # ---------------------------------------------------------------------------
-# WebSocket — real-time messaging
+# WebSocket -- real-time messaging
 # ---------------------------------------------------------------------------
 
 @router.websocket("/ws/chat/{other_id}")
