@@ -175,6 +175,7 @@ async def create_call_room(
             "alpha": result["alpha"],
             "beta": result["beta"],
             "profile_name": result["profile_name"],
+            "kem_alg": result["kem_alg"],
             "kf_preview": result["kf_preview"],
             "kfinal_preview": result["kfinal_preview"],
             "sid": result["sid"],

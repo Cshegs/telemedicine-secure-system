@@ -3,7 +3,7 @@ Phase 4 — Real-time encrypted chat.
 
 Each message:
   1. Arrives via WebSocket (plaintext from the sender's browser)
-  2. establish_session_key("chat", patient_id) → kfinal  [BALANCED_PROFILE α=0.4 β=0.6]
+  2. establish_session_key("chat", patient_id) → kfinal  [BALANCED_PROFILE, ML-KEM-768]
   3. AES-256-GCM encrypt → stored in DB (ciphertext + nonce + wrapped_key)
   4. Plaintext + metadata broadcast to all connected sockets in the room
 

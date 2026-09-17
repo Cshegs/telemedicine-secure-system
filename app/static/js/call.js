@@ -75,7 +75,7 @@ async function startCall() {
     shareUrl = data.join_url || '';
 
     document.getElementById('krProfile').textContent = data.crypto.profile_name;
-    document.getElementById('krWeights').textContent = `α=${data.crypto.alpha}  β=${data.crypto.beta}`;
+    document.getElementById('krWeights').textContent = data.crypto.kem_alg;
     document.getElementById('krTime').textContent = `${data.crypto.execution_time_ms} ms`;
     document.getElementById('krKf').textContent = `${data.crypto.kf_preview}…`;
     document.getElementById('krSid').textContent = data.crypto.sid.slice(0, 18) + '…';

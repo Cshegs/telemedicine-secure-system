@@ -40,9 +40,12 @@
         <p class="text-xs text-slate-400 leading-relaxed">
           Every time a doctor sends a chat, saves a patient record, or starts a video call,
           the system runs the full six-step ECC–Kyber hybrid key fusion pipeline and logs
-          the result here. Different functions use different α/β weightings — a video call
-          prioritises speed (α=0.7), a patient record prioritises quantum resistance (β=0.8),
-          and chat uses the paper's recommended optimal balance (α=0.4, β=0.6).
+          the result here. Different functions select a different ML-KEM parameter set at
+          Step 2 — a video call uses ML-KEM-512 for speed, a patient record uses ML-KEM-1024
+          for maximum security margin, and chat uses ML-KEM-768, the general-purpose default.
+          α/β are kept as descriptive profile labels; Step 4's fusion always uses the full
+          secret from both legs regardless of profile, so this choice never weakens the
+          combined key below either leg's own strength.
           The chart and Table I below are the live version of the paper's evaluation results,
           built from actual system operations rather than a standalone script.
         </p>
@@ -97,16 +100,16 @@
     <div id="compareResults" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div>
   </div>
 
-  <!-- ── MockKyber notice ──────────────────────────────────────── -->
-  <div class="mb-4 rounded-lg border border-yellow-800 bg-yellow-950/30 px-4 py-3 flex items-start gap-3">
-    <span class="text-yellow-400 flex-shrink-0">⚠</span>
-    <p class="text-xs text-yellow-300 leading-relaxed">
-      <span class="font-semibold">Running with MockKyber</span> — the Kyber KEM step uses a
-      SHA-256 based placeholder for portability. The protocol structure, weighted fusion, context
-      binding, and AES encryption are all real. To enable full ML-KEM-768 (CRYSTALS-Kyber),
-      install <span class="mono bg-yellow-950 px-1 rounded">liboqs-python</span> and swap
-      MockKyber in <span class="mono bg-yellow-950 px-1 rounded">app/crypto/hybrid_fusion.py</span>
-      as documented in the README.
+  <!-- ── Kyber implementation notice ──────────────────────────────── -->
+  <div class="mb-4 rounded-lg border border-green-800 bg-green-950/30 px-4 py-3 flex items-start gap-3">
+    <span class="text-green-400 flex-shrink-0">&#10003;</span>
+    <p class="text-xs text-green-300 leading-relaxed">
+      <span class="font-semibold">Running with real ML-KEM (512 / 768 / 1024, profile-selected)</span> —
+      the Kyber KEM step uses liboqs's NIST FIPS 203 implementation (Open Quantum Safe), not a
+      placeholder, at whichever parameter set the operation's profile selects. The fusion
+      step always combines the full 32-byte secret from both the ECC and Kyber legs (see
+      <span class="mono bg-green-950 px-1 rounded">app/crypto/hybrid_fusion.py</span>), so
+      breaking either leg alone no longer weakens the fused key.
     </p>
   </div>
 
@@ -121,21 +124,21 @@
       <p class="text-2xl font-bold profile-speed mono" id="statSpeed">
         {{ avg_map.get('video_call', '—') }}{% if avg_map.get('video_call') %}ms{% endif %}
       </p>
-      <p class="text-xs text-slate-500 mt-0.5">α=0.7 β=0.3</p>
+      <p class="text-xs text-slate-500 mt-0.5">ML-KEM-512</p>
     </div>
     <div class="lab-card px-5 py-4">
       <p class="lab-label mb-1">Avg · Balanced</p>
       <p class="text-2xl font-bold profile-balanced mono" id="statBalanced">
         {{ avg_map.get('chat', '—') }}{% if avg_map.get('chat') %}ms{% endif %}
       </p>
-      <p class="text-xs text-slate-500 mt-0.5">α=0.4 β=0.6</p>
+      <p class="text-xs text-slate-500 mt-0.5">ML-KEM-768</p>
     </div>
     <div class="lab-card px-5 py-4">
       <p class="lab-label mb-1">Avg · Security</p>
       <p class="text-2xl font-bold profile-security mono" id="statSecurity">
         {{ avg_map.get('patient_record', '—') }}{% if avg_map.get('patient_record') %}ms{% endif %}
       </p>
-      <p class="text-xs text-slate-500 mt-0.5">α=0.2 β=0.8</p>
+      <p class="text-xs text-slate-500 mt-0.5">ML-KEM-1024</p>
     </div>
   </div>
 
@@ -159,7 +162,9 @@
         <canvas id="profileChart"></canvas>
       </div>
       <p class="text-xs text-slate-600 mt-3 text-center">
-        Higher α (ECC-dominant) = faster · Higher β (Kyber-dominant) = more quantum-resistant
+        SPEED (ML-KEM-512) · BALANCED (ML-KEM-768) · SECURITY (ML-KEM-1024) — the fusion step
+        always uses 100% of both keys, so the difference between profiles is which ML-KEM
+        parameter set gets generated, not how much of it survives fusion
       </p>
     </div>
 
@@ -183,7 +188,10 @@
         <div class="step-pill">
           <span class="step-num bg-purple-900 text-purple-300">2</span>
           <div class="min-w-0">
-            <p class="text-xs font-medium text-slate-300">MockKyber → K2</p>
+            <p class="text-xs font-medium text-slate-300">
+              {{ traditional_kem_alg if log.encryption_mode == 'traditional' else profile_kem_alg.get(log.operation_type, traditional_kem_alg) }}
+              &rarr; K2
+            </p>
             <p class="text-xs text-slate-500 mono truncate">KEM encapsulation</p>
           </div>
         </div>
@@ -300,17 +308,18 @@
     <div class="px-5 pb-5">
       <p class="lab-label mb-2">Interpretation</p>
       <p class="text-xs text-slate-400 leading-relaxed">
-        SPEED_PROFILE is expected to be the fastest of the three because its α=0.7 weighting
-        leans on ECC, the quicker of the two primitives. SECURITY_PROFILE is expected to be the
-        slowest because its β=0.8 weighting leans on Kyber instead. The weighted fusion approach
-        is designed to match or beat a single primitive used alone for its intended purpose: for
-        example, SPEED_PROFILE still keeps some Kyber contribution that a pure-ECC system would
-        not have, without giving up the speed that makes it suitable for a live video call. At
-        the scale these operations actually run at, all configurations land in the low single-digit
-        millisecond range, so individual runs can vary because of normal system scheduling noise
-        rather than a real difference between profiles. This is exactly why the benchmark above
-        runs 20 iterations and reports mean, min, max, and standard deviation instead of a single
-        timed run.
+        Each profile selects a different ML-KEM parameter set at Step 2 -- SPEED_PROFILE uses
+        ML-KEM-512, BALANCED_PROFILE uses ML-KEM-768, SECURITY_PROFILE uses ML-KEM-1024 -- and
+        Step 4 always fuses 100% of both keys regardless of which one was generated, so no
+        profile is ever weaker than a single parameter set's own guarantee. Measured on this
+        server, latency does not scale cleanly with parameter-set size: at these operation
+        sizes, ML-KEM's own cost is small enough that X25519 key generation and ordinary system
+        scheduling noise dominate the timing, so SECURITY_PROFILE is not reliably slower than
+        BALANCED_PROFILE in repeated runs. The real, unambiguous cost of a stronger profile is in
+        wire size instead -- SECURITY_PROFILE's ciphertext (1568 bytes) is more than double
+        SPEED_PROFILE's (768 bytes) -- which is why this project reports that as the tradeoff,
+        not latency. This is exactly why the benchmark above runs 20 iterations and reports
+        mean, min, max, and standard deviation instead of a single timed run.
       </p>
     </div>
   </div>
@@ -740,7 +749,7 @@ function updateVisualiser(log) {
     <div class="step-pill">
       <span class="step-num bg-purple-900 text-purple-300">2</span>
       <div class="min-w-0">
-        <p class="text-xs font-medium text-slate-300">MockKyber → K2</p>
+        <p class="text-xs font-medium text-slate-300">${log.kem_alg || 'ML-KEM'} &rarr; K2</p>
         <p class="text-xs text-slate-500 mono">KEM encapsulation</p>
       </div>
     </div>
@@ -851,15 +860,20 @@ async function runBenchmark() {
   }
 }
 
-function securityStrengthBar(bytesFromK2, bytesFromK1, color) {
-  const total = bytesFromK2 + bytesFromK1;
-  const pct = total > 0 ? Math.round((bytesFromK2 / total) * 100) : 0;
+// v3: bytes_from_k1/k2 are always 32/32 now (full-entropy fusion, no
+// truncation), so a byte-ratio bar would show a constant, meaningless
+// 50% for every profile. The real, varying signal is which ML-KEM
+// parameter set the profile selected -- shown here instead.
+const KEM_ALG_STRENGTH_PCT = { "ML-KEM-512": 33, "ML-KEM-768": 66, "ML-KEM-1024": 100 };
+
+function securityStrengthBar(kemAlg, color) {
+  const pct = KEM_ALG_STRENGTH_PCT[kemAlg] ?? 0;
   return `
     <div class="flex items-center gap-2">
       <div class="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden min-w-[60px]">
         <div class="h-full" style="width:${pct}%; background:${color};"></div>
       </div>
-      <span class="text-slate-400 mono flex-shrink-0">${pct}% Kyber</span>
+      <span class="text-slate-400 mono flex-shrink-0">${kemAlg ?? '—'}</span>
     </div>`;
 }
 
@@ -883,7 +897,7 @@ function renderBenchmarkTable(data) {
       <td class="px-4 py-3 text-right text-slate-400 mono">${r.min_ms}</td>
       <td class="px-4 py-3 text-right text-slate-400 mono">${r.max_ms}</td>
       <td class="px-4 py-3 text-right text-slate-400 mono">${r.std_dev_ms}</td>
-      <td class="px-4 py-3">${securityStrengthBar(r.bytes_from_k2, r.bytes_from_k1, r.color)}</td>
+      <td class="px-4 py-3">${securityStrengthBar(r.kem_alg, r.color)}</td>
     </tr>`).join('');
 }
 

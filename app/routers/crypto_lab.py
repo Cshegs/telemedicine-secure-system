@@ -14,7 +14,13 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from app.database import get_db
 from app.auth import get_session_user
 from app.models import CryptoOperationLog
-from app.crypto.hybrid_fusion import aes_encrypt, establish_session_key, traditional_hybrid_keygen, MockKyber
+from app.crypto.hybrid_fusion import (
+    aes_encrypt,
+    establish_session_key,
+    traditional_hybrid_keygen,
+    Kyber768KEM,
+    TRADITIONAL_ML_KEM_ALG,
+)
 from app.crypto.profiles import OPERATION_TYPE_TO_PROFILE
 
 router = APIRouter()
@@ -101,6 +107,11 @@ async def crypto_lab_page(request: Request, db: Session = Depends(get_db)):
         "total_ops":  total_ops,
         "profile_order":  PROFILE_ORDER,
         "profile_labels": PROFILE_LABELS,
+        # operation_type -> ML-KEM parameter set, for the pipeline visualiser.
+        # Only valid for "proposed"-mode logs; a "traditional"-mode log always
+        # used TRADITIONAL_ML_KEM_ALG regardless of its operation_type.
+        "profile_kem_alg": {op: cfg["kem_alg"] for op, cfg in OPERATION_TYPE_TO_PROFILE.items()},
+        "traditional_kem_alg": TRADITIONAL_ML_KEM_ALG,
     })
 
 
@@ -150,6 +161,14 @@ async def crypto_lab_data(request: Request, db: Session = Depends(get_db)):
                 "operation_type":  log.operation_type,
                 "alpha":           log.alpha,
                 "beta":            log.beta,
+                # A "traditional"-mode log always used the fixed baseline
+                # algorithm regardless of operation_type; a "proposed"-mode
+                # log used its profile's selected ML-KEM parameter set.
+                "kem_alg": (
+                    TRADITIONAL_ML_KEM_ALG
+                    if (log.encryption_mode or "proposed") == "traditional"
+                    else OPERATION_TYPE_TO_PROFILE.get(log.operation_type, {}).get("kem_alg", TRADITIONAL_ML_KEM_ALG)
+                ),
                 "bytes_from_k1":   log.bytes_from_k1,
                 "bytes_from_k2":   log.bytes_from_k2,
                 "k1_prime_preview":log.k1_prime_preview,
@@ -220,7 +239,7 @@ async def crypto_lab_compare(request: Request, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 BENCHMARK_ITERATIONS = 20
-_baseline_kyber = MockKyber()
+_baseline_kyber = Kyber768KEM()
 
 
 def _run_baseline_once() -> float:
@@ -276,6 +295,9 @@ async def crypto_lab_benchmark(request: Request, db: Session = Depends(get_db)):
         stats["alpha"]         = last_result["alpha"]
         stats["beta"]          = last_result["beta"]
         stats["profile_name"]  = last_result["profile_name"]
+        stats["kem_alg"]       = last_result["kem_alg"]
+        stats["kem_public_key_bytes"] = last_result["kem_public_key_bytes"]
+        stats["kem_ciphertext_bytes"] = last_result["kem_ciphertext_bytes"]
         stats["bytes_from_k1"] = last_result["bytes_from_k1"]
         stats["bytes_from_k2"] = last_result["bytes_from_k2"]
         profiles_out[op_type] = stats
@@ -285,6 +307,7 @@ async def crypto_lab_benchmark(request: Request, db: Session = Depends(get_db)):
     baseline_stats["alpha"]         = None
     baseline_stats["beta"]          = None
     baseline_stats["profile_name"]  = "BASELINE (naive concat)"
+    baseline_stats["kem_alg"]       = TRADITIONAL_ML_KEM_ALG
     baseline_stats["bytes_from_k1"] = 32
     baseline_stats["bytes_from_k2"] = 32
 

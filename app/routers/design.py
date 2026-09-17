@@ -38,12 +38,14 @@ PIPELINE_STEPS = [
     },
     {
         "num": 2,
-        "title": "MockKyber KEM",
+        "title": "ML-KEM (CRYSTALS-Kyber)",
         "formula": "Encaps(pk) -> (ciphertext, K2)",
         "detail": (
-            "Stands in for CRYSTALS-Kyber (ML-KEM). One side encapsulates "
+            "Real NIST FIPS 203 ML-KEM, via liboqs. One side encapsulates "
             "a second shared secret K2 against the other side's public "
-            "key. This is the quantum-resistant half of the pair."
+            "key. This is the quantum-resistant half of the pair. Which "
+            "parameter set runs here -- ML-KEM-512, -768, or -1024 -- is "
+            "chosen per operation type in the next section."
         ),
         "color": "purple",
     },
@@ -60,13 +62,15 @@ PIPELINE_STEPS = [
     },
     {
         "num": 4,
-        "title": "Weighted Fusion",
-        "formula": "Kf = SHA256(\u03b1\u00b7K1\u2032 \u2016 \u03b2\u00b7K2\u2032)",
+        "title": "Full-Entropy Fusion",
+        "formula": "Kf = SHA256(K1\u2032 \u2016 K2\u2032)",
         "detail": (
-            "A configurable share of bytes is taken from K1\u2032 and K2\u2032 and "
-            "hashed together. This is the project's core design "
-            "contribution: alpha and beta decide how much each side "
-            "contributes, per use case."
+            "K1\u2032 and K2\u2032 are always combined in full -- no bytes are "
+            "dropped from either side, so breaking one leg alone never "
+            "weakens Kf below the other leg's full strength. The project's "
+            "actual weighting decision already happened at Step 2: alpha "
+            "and beta chose which ML-KEM parameter set (512/768/1024) got "
+            "used, not how much of it survives fusion."
         ),
         "color": "orange",
     },
@@ -104,45 +108,51 @@ PROFILES = [
         "name": "SPEED_PROFILE",
         "alpha": 0.7,
         "beta": 0.3,
+        "kem_alg": "ML-KEM-512",
         "use_case": "Video Call",
         "color": "sky",
         "heading": "Why speed matters here",
         "why": (
             "A video call needs a fresh session key the instant the call "
-            "connects, so this profile leans on ECC, the faster of the two "
-            "primitives. A smaller share still comes from Kyber, so even "
-            "the fastest profile keeps some quantum resistance rather than "
-            "dropping it completely."
+            "connects, so this profile pairs ECC with ML-KEM-512 -- NIST "
+            "security category 1, the smallest and fastest standardised "
+            "ML-KEM parameter set. Still fully quantum-resistant, just the "
+            "lightest tier, and always combined at full strength with the "
+            "ECC leg (Step 4 never drops bytes from either side)."
         ),
     },
     {
         "name": "BALANCED_PROFILE",
         "alpha": 0.4,
         "beta": 0.6,
+        "kem_alg": "ML-KEM-768",
         "use_case": "Secure Chat",
         "color": "violet",
         "heading": "Why this is the paper's optimal point",
         "why": (
             "Chat messages are frequent but not as time-critical as a live "
-            "call, so the majority of the weight shifts to Kyber while "
-            "enough ECC speed remains that typing never feels delayed. "
-            "This is the configuration the evaluation chapter recommends "
-            "as the everyday default."
+            "call, so this profile uses ML-KEM-768 -- NIST security "
+            "category 3, and the parameter set most healthcare PQC "
+            "guidance recommends as a general-purpose default. This is "
+            "also the fixed algorithm the traditional baseline uses, so "
+            "it's the fairest single point of comparison."
         ),
     },
     {
         "name": "SECURITY_PROFILE",
         "alpha": 0.2,
         "beta": 0.8,
+        "kem_alg": "ML-KEM-1024",
         "use_case": "Patient Records",
         "color": "emerald",
         "heading": "Why quantum resistance matters here",
         "why": (
             "Patient records are written once and may need to stay "
             "confidential for decades, well past the point a quantum "
-            "computer could threaten classical ECC. A slightly slower "
-            "key setup is an acceptable cost, so this profile pushes most "
-            "of the weight onto the quantum-resistant side."
+            "computer could threaten classical ECC. This profile spends "
+            "the extra key/ciphertext size of ML-KEM-1024 -- NIST security "
+            "category 5, the strongest standardised parameter set -- as "
+            "an acceptable bandwidth cost for the highest-sensitivity data."
         ),
     },
 ]
