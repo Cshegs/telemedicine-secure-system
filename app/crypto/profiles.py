@@ -51,12 +51,23 @@ Each profile still also carries:
     derived for another.
   - label / description: shown in the UI and used for logging/audit
     purposes.
+
+A further correction on alpha/beta specifically: earlier revisions kept
+them as a pair that summed to 1 (e.g. 0.7/0.3), which still visually
+implied a weighted split even after v3 removed any such split from the
+combiner. That was wrong to leave standing. Since Step 4 always includes
+100% of both K1' and K2' for every profile, the only honest value for
+each is 1.0 -- not a fraction, and not two numbers that sum to 1. They
+are kept at 1.0/1.0 purely so `CryptoOperationLog.alpha`/`.beta` (a
+NOT NULL schema already holding historical rows) keep receiving a value;
+no code branches on them, and nothing in the UI displays them any more
+(see CHANGES.md section 7).
 """
 
 SPEED_PROFILE = {
     "name": "SPEED_PROFILE",
-    "alpha": 0.7,
-    "beta": 0.3,
+    "alpha": 1.0,
+    "beta": 1.0,
     "operation_type": "video_call",
     "kem_alg": "ML-KEM-512",
     "label": "Speed-Optimised (Video Call)",
@@ -72,8 +83,8 @@ SPEED_PROFILE = {
 
 BALANCED_PROFILE = {
     "name": "BALANCED_PROFILE",
-    "alpha": 0.4,
-    "beta": 0.6,
+    "alpha": 1.0,
+    "beta": 1.0,
     "operation_type": "chat",
     "kem_alg": "ML-KEM-768",
     "label": "Balanced (Secure Chat)",
@@ -88,8 +99,8 @@ BALANCED_PROFILE = {
 
 SECURITY_PROFILE = {
     "name": "SECURITY_PROFILE",
-    "alpha": 0.2,
-    "beta": 0.8,
+    "alpha": 1.0,
+    "beta": 1.0,
     "operation_type": "patient_record",
     "kem_alg": "ML-KEM-1024",
     "label": "Security-Maximised (Patient Records)",

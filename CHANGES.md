@@ -255,7 +255,43 @@ That bandwidth/storage cost, not latency, is the honest basis for
 "weighted" in this design -- reporting it any other way would not be
 supported by what was actually measured.
 
-## 7. Known follow-up: production deployment
+## 7. alpha/beta removed from every user-facing display
+
+Section 6 kept alpha/beta visible in a few places as "descriptive only"
+metadata (e.g. `α=0.7 β=0.3` next to a profile). On reflection this was a
+mistake to leave in: alpha+beta still summed to 1 wherever shown, which
+visually implies a live weighted split even though nothing in the code
+uses these numbers for anything security-relevant any more. That is the
+exact class of mismatch this whole fix has been about removing, so it
+should not have been left standing just because the underlying math was
+now correct elsewhere.
+
+Every remaining `α`/`β` display has been removed from the live app:
+the Crypto Lab's Table I and Operation Log columns, the "Live Comparison"
+cards, the pipeline visualiser, `/design`, `/call`, `/chat`, `/records`,
+`/crypto-test`, and the chat/call JS notification banners. Each was
+replaced with the profile's actual `kem_alg` (ML-KEM-512/768/1024) where
+a value was shown at all. `alpha`/`beta` remain as fields in
+`app/crypto/profiles.py` and in `CryptoOperationLog` purely as internal
+record-keeping (which profile a log row came from) -- they are no longer
+surfaced to a user or reviewer anywhere in the running system.
+
+A second correction, on the values themselves rather than just where
+they're shown: `alpha`/`beta` still held pairs like `0.7`/`0.3` (summing
+to 1), which is a weighted-split value even with no display left to put
+it on -- the value itself still asserted something false. Since Step 4
+always includes 100% of both K1' and K2', the only honest value for
+each is `1.0`, not a fraction. `app/crypto/profiles.py` and
+`traditional_hybrid_keygen()` in `hybrid_fusion.py` now set both to
+`1.0` for every profile and for the traditional baseline. They are kept
+at all only because `CryptoOperationLog.alpha`/`.beta` are `NOT NULL`
+columns already holding historical rows; nothing branches on their
+value. `app/routers/design.py`'s separate, display-only `PROFILES` list
+had no such constraint, so `alpha`/`beta` were removed from it outright
+rather than set to `1.0` -- the honest choice there was to carry no
+value at all, not a placeholder one.
+
+## 8. Known follow-up: production deployment
 
 Installing `liboqs-python` triggers a one-time build of the underlying
 `liboqs` C library (cmake + a C compiler, several minutes) the first time

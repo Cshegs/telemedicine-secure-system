@@ -99,8 +99,7 @@ def _chat_crypto_response(result: dict, ciphertext_hex: str) -> dict:
     return {
         "operation_type": result["operation_type"],
         "profile_name": result["profile_name"],
-        "alpha": result["alpha"],
-        "beta": result["beta"],
+        "kem_alg": result["kem_alg"],
         "sid": result["sid"],
         "execution_time_ms": result["execution_time_ms"],
         "kf_preview": result["kf_preview"],
@@ -135,8 +134,7 @@ async def _save_chat_message(request: Request, db: Session, user: User, other: U
         "text": text,
         "timestamp": datetime.now(timezone.utc).strftime("%H:%M"),
         "exec_ms": result["execution_time_ms"],
-        "alpha": result["alpha"],
-        "beta": result["beta"],
+        "kem_alg": result["kem_alg"],
         "kf_preview": result["kf_preview"],
     }
     await _broadcast_chat_payload(_room_key(user.id, other.id), payload)

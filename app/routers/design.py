@@ -106,8 +106,6 @@ PIPELINE_STEPS = [
 PROFILES = [
     {
         "name": "SPEED_PROFILE",
-        "alpha": 0.7,
-        "beta": 0.3,
         "kem_alg": "ML-KEM-512",
         "use_case": "Video Call",
         "color": "sky",
@@ -123,8 +121,6 @@ PROFILES = [
     },
     {
         "name": "BALANCED_PROFILE",
-        "alpha": 0.4,
-        "beta": 0.6,
         "kem_alg": "ML-KEM-768",
         "use_case": "Secure Chat",
         "color": "violet",
@@ -140,8 +136,6 @@ PROFILES = [
     },
     {
         "name": "SECURITY_PROFILE",
-        "alpha": 0.2,
-        "beta": 0.8,
         "kem_alg": "ML-KEM-1024",
         "use_case": "Patient Records",
         "color": "emerald",

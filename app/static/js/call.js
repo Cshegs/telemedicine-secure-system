@@ -87,7 +87,7 @@ async function startCall() {
     }
 
     showState('KeyReady');
-    establishingDetails.innerHTML = `Kfinal derived in ${data.crypto.execution_time_ms} ms (SPEED_PROFILE α=0.7)`;
+    establishingDetails.innerHTML = `Kfinal derived in ${data.crypto.execution_time_ms} ms (SPEED_PROFILE, ${data.crypto.kem_alg})`;
 
     await sleep(700);
     await joinRoom(currentRoomUrl, voiceOnlyToggle.checked);

@@ -87,8 +87,8 @@ Open **http://localhost:8000** — demo credentials are shown on the login page.
 The **Crypto Lab** (`/crypto-lab`) is the core examiner-facing feature. It shows:
 
 1. **Live operation log** — every call to `establish_session_key()` (triggered by real
-   user actions) appears here with operation type, α/β weights, K1′/K2′/Kf previews,
-   and execution time.
+   user actions) appears here with operation type, the ML-KEM parameter set that
+   profile selected (512/768/1024), K1′/K2′/Kf previews, and execution time.
 2. **Comparison chart** — Chart.js bar chart of average execution time per profile,
    built from actual logged history — the live version of Table I from the paper.
 3. **"Run Live Comparison" button** — fires all three profiles back-to-back and shows
@@ -127,37 +127,35 @@ NAT, add a free TURN server:
 
 ---
 
-## Swapping MockKyber for real ML-KEM-768
+## Real ML-KEM implementation (via liboqs)
 
-The current build uses `MockKyber` (SHA-256 based placeholder) so the platform runs
-without native compiled dependencies. To use real CRYSTALS-Kyber:
+An earlier build used `MockKyber`, a SHA-256-based placeholder with the same
+interface as a real KEM but no lattice cryptography and no quantum resistance.
+That has been replaced with `KyberKEM` in `app/crypto/hybrid_fusion.py`, a thin
+wrapper around `oqs.KeyEncapsulation(...)` from `liboqs-python` (Open Quantum
+Safe's `liboqs`, NIST FIPS 203). See `CHANGES.md` for the full history of that
+fix, the byte-truncation flaw a peer reviewer separately caught and fixed, and
+the later change described below.
 
-```bash
-pip install liboqs-python
-```
+Each of the three profiles now selects a different real ML-KEM parameter set
+rather than all defaulting to the same one:
 
-Then in `app/crypto/hybrid_fusion.py`, replace `MockKyber` with:
+| Profile | Operation | ML-KEM parameter set |
+|---|---|---|
+| SPEED_PROFILE | video_call | ML-KEM-512 |
+| BALANCED_PROFILE | chat | ML-KEM-768 |
+| SECURITY_PROFILE | patient_record | ML-KEM-1024 |
 
-```python
-import oqs
+The "traditional" comparison baseline stays fixed on ML-KEM-768 for a fair,
+apples-to-apples benchmark. See `CHANGES.md` section 6 for the reasoning,
+the literature check behind it, and the real re-benchmark numbers.
 
-class RealKyber:
-    def KeyGen(self):
-        kem = oqs.KeyEncapsulation("Kyber768")
-        pk = kem.generate_keypair()
-        return pk, kem.export_secret_key()
-
-    def Encaps(self, pk):
-        kem = oqs.KeyEncapsulation("Kyber768")
-        ct, ss = kem.encap_secret(pk)
-        return ct, ss
-
-    def Decaps(self, ciphertext, sk):
-        kem = oqs.KeyEncapsulation("Kyber768", secret_key=sk)
-        return kem.decap_secret(ciphertext)
-```
-
-The rest of the six-step pipeline (Steps 3–6) is unchanged.
+**First run note:** `liboqs-python` builds the underlying `liboqs` C library
+from source the first time it's imported (needs `cmake`, `git`, and a C
+compiler — see that library's own install docs if this fails). That build can
+take several minutes and will make the first request to any page that touches
+crypto (login, `/crypto-lab`, `/call`, `/records`, `/chat`) feel slow or
+briefly unresponsive; it only happens once per environment.
 
 ---
 

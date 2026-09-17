@@ -266,8 +266,7 @@
             </div>
             {% if rec.crypto_log %}
             <span class="text-xs text-gray-400 font-mono">
-              ={{ rec.crypto_log.alpha }} ={{ rec.crypto_log.beta }}
-               {{ rec.crypto_log.execution_time_ms }}ms
+              {{ rec.crypto_log.execution_time_ms }}ms
             </span>
             {% endif %}
           </div>
@@ -356,7 +355,7 @@
       </div>
       {% if rec.crypto_log %}
       <span class="text-xs text-gray-400 font-mono">
-        {{ rec.crypto_log.execution_time_ms }}ms  ={{ rec.crypto_log.alpha }} ={{ rec.crypto_log.beta }}
+        {{ rec.crypto_log.execution_time_ms }}ms
       </span>
       {% endif %}
     </div>

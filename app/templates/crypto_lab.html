@@ -43,9 +43,8 @@
           the result here. Different functions select a different ML-KEM parameter set at
           Step 2 — a video call uses ML-KEM-512 for speed, a patient record uses ML-KEM-1024
           for maximum security margin, and chat uses ML-KEM-768, the general-purpose default.
-          α/β are kept as descriptive profile labels; Step 4's fusion always uses the full
-          secret from both legs regardless of profile, so this choice never weakens the
-          combined key below either leg's own strength.
+          Step 4's fusion always uses the full secret from both legs regardless of profile,
+          so this choice never weakens the combined key below either leg's own strength.
           The chart and Table I below are the live version of the paper's evaluation results,
           built from actual system operations rather than a standalone script.
         </p>
@@ -272,8 +271,6 @@
         <thead>
           <tr class="border-b border-slate-800">
             <th class="px-4 py-3 text-left lab-label">Configuration</th>
-            <th class="px-4 py-3 text-right lab-label">α</th>
-            <th class="px-4 py-3 text-right lab-label">β</th>
             <th class="px-4 py-3 text-right lab-label">Mean (ms)</th>
             <th class="px-4 py-3 text-right lab-label">Min</th>
             <th class="px-4 py-3 text-right lab-label">Max</th>
@@ -283,7 +280,7 @@
         </thead>
         <tbody id="benchmarkBody" class="divide-y divide-slate-800">
           <tr>
-            <td colspan="8" class="px-4 py-12 text-center text-slate-600">
+            <td colspan="6" class="px-4 py-12 text-center text-slate-600">
               No benchmark run yet. Click "Run Formal Benchmark" above to generate Table I
               from a live 20-iteration run on this server.
             </td>
@@ -366,7 +363,7 @@
       <div class="px-5 py-5">
         <p class="text-xs font-bold text-white mb-1">② Replay Attack Resistance</p>
         <p class="text-xs text-slate-400 mb-3 leading-relaxed">
-          Two operations for the same patient using identical α/β produce different Kfinal values — because SID and timestamp always differ.
+          Two operations for the same patient using the same profile still produce different Kfinal values — because SID and timestamp always differ.
         </p>
         <div class="rounded bg-slate-800 px-3 py-2 text-xs mono space-y-1">
           <p class="text-slate-400">What makes each key unique:</p>
@@ -422,7 +419,7 @@
           <tr class="border-b border-slate-800">
             <th class="px-4 py-3 text-left lab-label">Operation</th>
             <th class="px-4 py-3 text-left lab-label">Profile</th>
-            <th class="px-4 py-3 text-left lab-label">α / β</th>
+            <th class="px-4 py-3 text-left lab-label">ML-KEM</th>
             <th class="px-4 py-3 text-left lab-label hidden sm:table-cell">K1′</th>
             <th class="px-4 py-3 text-left lab-label hidden sm:table-cell">K2′</th>
             <th class="px-4 py-3 text-left lab-label hidden md:table-cell">Kf</th>
@@ -449,7 +446,9 @@
               {% elif log.operation_type == 'chat' %}BALANCED
               {% else %}SECURITY{% endif %}
             </td>
-            <td class="px-4 py-3 text-slate-300 mono">{{ log.alpha }} / {{ log.beta }}</td>
+            <td class="px-4 py-3 text-slate-300 mono">
+              {{ traditional_kem_alg if log.encryption_mode == 'traditional' else profile_kem_alg.get(log.operation_type, traditional_kem_alg) }}
+            </td>
             <td class="px-4 py-3 text-yellow-500 mono hidden sm:table-cell">{{ log.k1_prime_preview }}…</td>
             <td class="px-4 py-3 text-yellow-500 mono hidden sm:table-cell">{{ log.k2_prime_preview }}…</td>
             <td class="px-4 py-3 text-orange-400 mono hidden md:table-cell">{{ log.kf_preview }}…</td>
@@ -727,7 +726,7 @@ function updateLogTable(logs) {
         <td class="px-4 py-3 mono ${profileColor[log.operation_type] || 'text-slate-300'}">
           ${profileLabel[log.operation_type] || '—'}
         </td>
-        <td class="px-4 py-3 text-slate-300 mono">${log.alpha} / ${log.beta}</td>
+        <td class="px-4 py-3 text-slate-300 mono">${log.kem_alg}</td>
         <td class="px-4 py-3 text-yellow-500 mono hidden sm:table-cell">${log.k1_prime_preview}…</td>
         <td class="px-4 py-3 text-yellow-500 mono hidden sm:table-cell">${log.k2_prime_preview}…</td>
         <td class="px-4 py-3 text-orange-400 mono hidden md:table-cell">${log.kf_preview}…</td>
@@ -802,8 +801,6 @@ async function runComparison() {
 
     const colors  = { video_call: '#38bdf8', chat: '#a78bfa', patient_record: '#34d399' };
     const names   = { video_call: 'SPEED_PROFILE', chat: 'BALANCED_PROFILE', patient_record: 'SECURITY_PROFILE' };
-    const weights = { video_call: 'α=0.7 β=0.3', chat: 'α=0.4 β=0.6', patient_record: 'α=0.2 β=0.8' };
-
     document.getElementById('compareResults').innerHTML = data.results.map(r => `
       <div style="border:1px solid ${colors[r.operation_type]}22; background:${colors[r.operation_type]}0d;"
            class="rounded-lg px-4 py-4">
@@ -811,7 +808,7 @@ async function runComparison() {
           ${names[r.operation_type]}
         </p>
         <p class="text-2xl font-bold text-white mono">${r.execution_time_ms}<span class="text-sm font-normal text-slate-400"> ms</span></p>
-        <p class="text-xs text-slate-500 mt-1">${weights[r.operation_type]}</p>
+        <p class="text-xs text-slate-500 mt-1">${r.kem_alg}</p>
         <div class="mt-2 space-y-0.5 text-xs mono text-slate-500">
           <div>Kf = <span style="color:${colors[r.operation_type]}">${r.kf_preview}…</span></div>
           <div>SID = ${r.sid.slice(0,14)}…</div>
@@ -891,8 +888,6 @@ function renderBenchmarkTable(data) {
   document.getElementById('benchmarkBody').innerHTML = rows.map(r => `
     <tr class="hover:bg-slate-800/40 transition-colors">
       <td class="px-4 py-3 mono" style="color:${r.color}">${r.label}</td>
-      <td class="px-4 py-3 text-right text-slate-300 mono">${r.alpha ?? '-'}</td>
-      <td class="px-4 py-3 text-right text-slate-300 mono">${r.beta ?? '-'}</td>
       <td class="px-4 py-3 text-right font-semibold text-white mono">${r.mean_ms}</td>
       <td class="px-4 py-3 text-right text-slate-400 mono">${r.min_ms}</td>
       <td class="px-4 py-3 text-right text-slate-400 mono">${r.max_ms}</td>

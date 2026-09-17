@@ -44,8 +44,7 @@
     if (!notifyPanel || !notifyText) return;
 
     const profileName = data.profile_name || (data.operation_type || 'chat').toUpperCase();
-    const alpha = data.alpha;
-    const beta = data.beta;
+    const kemAlg = data.kem_alg || 'ML-KEM';
     const sid = truncateMiddle(data.sid || '', 12);
     const kfPreview = data.kf_preview || '';
     const ciphertext = data.ciphertext_hex || '';
@@ -54,7 +53,7 @@
     notifyText.textContent =
       `🔐 Message Encrypted — ${profileName}\n` +
       `┌─────────────────────────────────────────┐\n` +
-      `│ α=${alpha}  β=${beta}  |  Time: ${timeMs}ms         │\n` +
+      `│ ${kemAlg}  |  Time: ${timeMs}ms         │\n` +
       `│ SID: ${sid}                  │\n` +
       `│ Kf:  ${kfPreview}...                       │\n` +
       `│ Cipher: ${ciphertext}...            │\n` +
@@ -94,7 +93,7 @@
 
       // Update the crypto info bar with the latest pipeline stats
       cryptoBar.textContent =
-        `Latest key fusion: α=${data.alpha} β=${data.beta} · ` +
+        `Latest key fusion: ${data.kem_alg} · ` +
         `Kf=${data.kf_preview}… · ${data.exec_ms}ms · BALANCED_PROFILE`;
       cryptoBar.classList.remove('hidden');
     };

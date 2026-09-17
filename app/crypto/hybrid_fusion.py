@@ -335,8 +335,11 @@ def traditional_hybrid_keygen(context_id: str) -> dict:
 
     return {
         "kfinal": Kfinal,
-        "alpha": 0.5,
-        "beta": 0.5,
+        # 1.0/1.0, not 0.5/0.5: this baseline also concatenates the FULL
+        # K1 and K2 (see profiles.py's note on why alpha/beta are 1.0 now,
+        # not a pair that sums to 1). Kept only for the NOT NULL log schema.
+        "alpha": 1.0,
+        "beta": 1.0,
         "profile_name": "TRADITIONAL_BASELINE",
         "operation_type": "traditional",
         "context_id": PID,
