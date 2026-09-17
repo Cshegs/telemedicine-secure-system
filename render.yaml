@@ -1,10 +1,17 @@
 services:
   - type: web
     name: telemed-hybrid-crypto
-    runtime: python
-    pythonVersion: "3.11"
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Was runtime: python. That runtime's build image has no cmake, so
+    # liboqs-python's automatic liboqs build (which only happens the first
+    # time app code does `import oqs`, i.e. at container startup, not at
+    # `pip install` time) failed with "cmake: not found" and the deploy
+    # never came up. Render's own docs say the fix for a missing build tool
+    # is Docker instead of the native runtime -- see Dockerfile and
+    # CHANGES.md for the full incident writeup. buildCommand/startCommand/
+    # pythonVersion are dropped because a Docker service takes its build and
+    # start steps from the Dockerfile instead.
+    runtime: docker
+    dockerfilePath: ./Dockerfile
     envVars:
       - key: SESSION_SECRET
         generateValue: true

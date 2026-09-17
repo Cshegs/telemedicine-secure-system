@@ -303,6 +303,62 @@ Render's build step tolerates a multi-minute `pip install`. This wasn't
 tested against Render specifically and should be verified before the
 live demo depends on it, rather than assumed.
 
+## 9. Section 8's flagged risk actually happened -- fixed with Docker
+
+Section 8 flagged, before it happened, that Render's build step might not
+tolerate the liboqs C build and that this "wasn't tested against Render
+specifically." It wasn't, and it failed exactly as guessed: the real Render
+deploy log showed
+
+```
+/bin/sh: 1: cmake: not found
+Error installing liboqs.
+...
+RuntimeError: No oqs shared libraries found
+```
+
+The cause: `liboqs-python`'s liboqs build is not a `pip install`-time step,
+it's a lazy first-`import oqs` step -- which on Render happens when the
+web process starts, i.e. every cold start on the free tier. `runtime: python`
+services on Render run on a Debian-based build image that does not include
+`cmake` (Render's own docs confirm this and say to switch to Docker if a
+needed build tool is missing from the native runtime).
+
+Fix: added a `Dockerfile` and switched `render.yaml` from `runtime: python`
+to `runtime: docker`. The Dockerfile installs the real toolchain liboqs
+needs (`cmake`, `build-essential`, `ninja-build`, `git`, `libssl-dev`,
+`pkg-config`) and then runs
+
+```
+python -c "import oqs; [oqs.KeyEncapsulation(alg).generate_keypair() for alg in ('ML-KEM-512','ML-KEM-768','ML-KEM-1024')]"
+```
+
+as a build step, so the liboqs C library is built once, at image-build
+time, against all three parameter sets the app actually uses -- not lazily
+inside the running container on Render's servers, and not silently
+skipping a variant that never gets exercised until a real doctor/patient
+session hits it.
+
+**What was actually verified in this sandbox** (no unverified claim,
+consistent with this project's whole discipline): Render's own Docker-image
+registry pull could not be tested here directly -- this sandbox's egress
+policy blocks Docker Hub, so `docker build` itself could not be run
+end-to-end against `python:3.11-slim`. What *was* verified directly: (1)
+`build-essential`, `cmake`, `ninja-build`, `git`, `libssl-dev`, `pkg-config`
+are all real, correctly-named Debian/Ubuntu apt packages (checked against
+this sandbox's own apt metadata); (2) with those tools present and liboqs's
+cached build artifacts removed, a genuinely cold `pip install -r
+requirements.txt` followed by the exact warm-up command above took ~7.5
+minutes and produced a real, working liboqs build from source; (3) after
+that cold build, `establish_session_key()` was re-run for all three
+operation types and returned real ML-KEM-512/768/1024 sizes matching NIST
+FIPS 203 (pk/ct = 800/768, 1184/1088, 1568/1568 bytes respectively) --
+i.e. the exact mechanism the Dockerfile relies on was exercised, just not
+inside an actual Docker container. **Still outstanding:** an actual `docker
+build` / Render deploy of this Dockerfile has not been observed to
+succeed end-to-end; treat this as strongly-supported, not yet
+first-hand-confirmed on Render, until the next real deploy log is checked.
+
 ## Not yet done (separate from this fix)
 
 - Entity authentication / threat model (reviewer comment 2) -- not
@@ -327,3 +383,7 @@ live demo depends on it, rather than assumed.
   measured sizes above), not a latency tradeoff -- the real benchmark
   data does not support a monotonic latency claim, and the paper must
   not claim one.
+- The Render Docker deploy (section 9) needs to actually be watched
+  through a real deploy log once pushed -- the fix is verified as far
+  as this sandbox's network policy allows, but not yet confirmed against
+  a live Render build.

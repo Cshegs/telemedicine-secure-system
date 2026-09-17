@@ -103,9 +103,20 @@ The **Crypto Lab** (`/crypto-lab`) is the core examiner-facing feature. It shows
 
 1. Push this repository to GitHub.
 2. Go to [render.com](https://render.com) → **New Web Service** → connect the repo.
-3. Render auto-detects `render.yaml` and configures the service.
+3. Render auto-detects `render.yaml` and configures the service as a **Docker**
+   service (see `Dockerfile`).
 4. A unique `SESSION_SECRET` is generated automatically.
 5. Deploy.
+
+**Why Docker, not Render's native Python runtime:** ML-KEM (via `liboqs-python`)
+builds the real `liboqs` C library itself the first time the app imports `oqs` --
+that build needs `cmake` and a C compiler. Render's native Python runtime image
+doesn't include `cmake`, so a first deploy on that runtime fails with
+`cmake: not found`. The `Dockerfile` installs the real build toolchain
+(`cmake`, `build-essential`, `ninja-build`, `git`) and forces the liboqs build
+to happen once at image-build time -- for all three parameter sets the app
+actually uses (ML-KEM-512/768/1024) -- instead of on every container start.
+See `CHANGES.md` for the incident writeup.
 
 **Free-tier note:** Render free services sleep after 15 minutes of inactivity.
 The first request after a sleep cycle takes ~30–50 seconds to respond (cold start).
